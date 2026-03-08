@@ -1,7 +1,7 @@
 ﻿{
   "name": "renderdoc-rdc-gpu-debug-agent",
   "description": "RenderDoc/RDC GPU Debug - invariant-driven multi-agent rendering debugger built on top of a RenderDoc/RDC platform capability layer.",
-  "core_source": "../../common/AGENT_CORE.md",
+  "core_source": "./common/AGENT_CORE.md",
   "agents": [
     {
       "name": "Team Lead",
@@ -61,19 +61,19 @@
   "knowledge_base": [
     {
       "name": "invariant_library",
-      "path": "../../common/knowledge/spec/invariants/invariant_library.yaml"
+      "path": "./common/knowledge/spec/invariants/invariant_library.yaml"
     },
     {
       "name": "symptom_taxonomy",
-      "path": "../../common/knowledge/spec/taxonomy/symptom_taxonomy.yaml"
+      "path": "./common/knowledge/spec/taxonomy/symptom_taxonomy.yaml"
     },
     {
       "name": "trigger_taxonomy",
-      "path": "../../common/knowledge/spec/taxonomy/trigger_taxonomy.yaml"
+      "path": "./common/knowledge/spec/taxonomy/trigger_taxonomy.yaml"
     },
     {
       "name": "sop_library",
-      "path": "../../common/knowledge/spec/skills/sop_library.yaml"
+      "path": "./common/knowledge/spec/skills/sop_library.yaml"
     }
   ],
   "mcp_servers": [
@@ -86,4 +86,5 @@
     }
   ]
 }
+
 

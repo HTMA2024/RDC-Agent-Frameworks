@@ -18,7 +18,7 @@ common/hooks/
     └── skeptic_signoff_schema.yaml  # Skeptic 签署记录 Schema
 ```
 
-Claude Code 平台的 Hook 触发配置在 `.claude/settings.json`。
+Claude Code 与其他宿主的 Hook 配置都应位于各自的平台包内；在源码树中请查看 `platforms/claude-code/.claude/settings.json` 与对应平台包目录。
 
 ---
 
@@ -125,5 +125,6 @@ python3 -m pip install pyyaml
 ```
 
 验证脚本仅依赖 Python 标准库 + PyYAML，无其他依赖。
+
 
 

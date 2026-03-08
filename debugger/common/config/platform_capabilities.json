@@ -1,4 +1,4 @@
-﻿{
+{
   "schema_version": 1,
   "runtime_contract": {
     "context_state_model": "single_current_runtime_per_context",
@@ -20,13 +20,10 @@
       "coordination_mode": "concurrent_team",
       "cli_discovery_policy": "mcp-discovery-ok,cli-reference-required",
       "required_paths": [
+        "platforms/code-buddy/README.md",
         "platforms/code-buddy/.codebuddy-plugin/plugin.json",
         "platforms/code-buddy/.mcp.json",
-        "platforms/code-buddy/hooks/hooks.json",
-        "platforms/code-buddy/skills/renderdoc-rdc-gpu-debug/SKILL.md",
-        "platforms/code-buddy/skills/renderdoc-rdc-gpu-debug/cli-mode-reference.md",
-        "platforms/code-buddy/agents/01_team_lead.md",
-        "platforms/code-buddy/agents/09_report_knowledge_curator.md"
+        "platforms/code-buddy/hooks/hooks.json"
       ]
     },
     "claude-code": {
@@ -43,10 +40,7 @@
       "required_paths": [
         "platforms/claude-code/README.md",
         "platforms/claude-code/.claude/settings.json",
-        "platforms/claude-code/skills/renderdoc-rdc-gpu-debug/SKILL.md",
-        "platforms/claude-code/skills/renderdoc-rdc-gpu-debug/cli-mode-reference.md",
-        "platforms/claude-code/agents/01_team_lead.md",
-        "platforms/claude-code/agents/09_report_knowledge_curator.md"
+        "platforms/claude-code/.claude/CLAUDE.md"
       ]
     },
     "copilot-cli": {
@@ -61,13 +55,10 @@
       "coordination_mode": "staged_handoff",
       "cli_discovery_policy": "cli-reference-required",
       "required_paths": [
+        "platforms/copilot-cli/README.md",
         "platforms/copilot-cli/.copilot-plugin.json",
         "platforms/copilot-cli/.mcp.json",
-        "platforms/copilot-cli/hooks/hooks.json",
-        "platforms/copilot-cli/skills/renderdoc-rdc-gpu-debug/SKILL.md",
-        "platforms/copilot-cli/skills/renderdoc-rdc-gpu-debug/cli-mode-reference.md",
-        "platforms/copilot-cli/agents/01_team_lead.md",
-        "platforms/copilot-cli/agents/09_report_knowledge_curator.md"
+        "platforms/copilot-cli/hooks/hooks.json"
       ]
     },
     "copilot-ide": {
@@ -84,11 +75,7 @@
       "required_paths": [
         "platforms/copilot-ide/README.md",
         "platforms/copilot-ide/agent-plugin.json",
-        "platforms/copilot-ide/.github/mcp.json",
-        "platforms/copilot-ide/.github/agents/orchestrator.md",
-        "platforms/copilot-ide/.github/agents/verifier.md",
-        "platforms/copilot-ide/.github/agents/report-curator.md",
-        "platforms/copilot-ide/references/entrypoints.md"
+        "platforms/copilot-ide/.github/mcp.json"
       ]
     },
     "claude-work": {
@@ -105,9 +92,7 @@
       "required_paths": [
         "platforms/claude-work/README.md",
         "platforms/claude-work/plugin.json",
-        "platforms/claude-work/references/entrypoints.md",
-        "platforms/claude-work/agents/team_lead.md",
-        "platforms/claude-work/agents/curator.md"
+        "platforms/claude-work/references/entrypoints.md"
       ]
     },
     "manus": {

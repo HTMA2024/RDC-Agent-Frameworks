@@ -1,4 +1,4 @@
-﻿# AGENTS.md
+# AGENTS.md
 
 ## Scope
 
@@ -40,7 +40,6 @@
 
 完成平台或文档改动后，至少检查：
 
-- `python debugger/scripts/sync_platform_agents.py --check`
+- `python debugger/scripts/sync_platform_scaffolds.py --check`
 - `python debugger/scripts/validate_tool_contract.py --strict`
 - 搜索是否仍残留旧目录名、旧 skill 名、deprecated 文案或双轨路径
-

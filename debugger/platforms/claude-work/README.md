@@ -1,22 +1,5 @@
-﻿# Claude Work Adaptation
+# Claude Work Template
 
-这是面向 `Claude Work` 的本地契约降级适配，不是满配平台实现。
+当前目录是 Claude Work 薄包装模板。Agent 的目标是使用 RenderDoc/RDC platform tools 调试 GPU 渲染问题。
 
-## 提供内容
-
-- `plugin.json`
-- `agents/`
-- `references/entrypoints.md`
-
-## 明确缺失
-
-- 不提供一等 skill 目录
-- 不宣称 hooks 完整支持
-- 不承诺 per-agent model 精确控制
-
-## 使用边界
-
-- 保留角色分工和证据门槛
-- 若任务依赖完整 hooks / rich MCP orchestration，应优先切回 `code-buddy`、`claude-code` 或 `copilot-cli`
-- framework 在该平台上的默认协作拓扑是 `staged_handoff`
-- remote case 一律采用 `single_runtime_owner`
+使用前先将根目录 `debugger/common/` 复制到当前模板根的 `common/`，再在宿主中打开该模板目录。

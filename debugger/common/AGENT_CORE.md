@@ -1,4 +1,4 @@
-﻿# RenderDoc/RDC GPU Debug Agent Core
+# RenderDoc/RDC GPU Debug Agent Core
 
 本文件是 `RenderDoc/RDC GPU Debug` 的核心 SSOT。
 
@@ -24,7 +24,7 @@
 - `common/config/platform_adapter.json`
 - `common/config/platform_capabilities.json`
 - `common/config/model_routing.json`
-- `docs/runtime-coordination-model.md`
+- `common/docs/runtime-coordination-model.md`
 
 ## 2. 接入模式规则
 
@@ -38,8 +38,8 @@
 - 禁止 discovery-by-trial-and-error。
 - 禁止靠 `--help`、命令枚举、随机试跑或观察式探索来猜能力面。
 - 用户明确要求 `CLI` 模式时，先阅读：
-  - `docs/cli-mode-reference.md`
-  - `docs/platform-capability-model.md`
+  - `common/docs/cli-mode-reference.md`
+  - `common/docs/platform-capability-model.md`
 
 ## 3. Agent Identity SSOT
 
@@ -131,7 +131,7 @@
 - remote 协作一律采用 `single_runtime_owner`：只有 owner 调用 `rd.*`，其他角色通过 brief / baton / artifact 协作。
 - 跨 agent 或跨轮次移交 live 调试上下文时，必须提供可重建的 `runtime_baton`。
 
-`runtime_baton` 的恢复顺序与语义以 `docs/runtime-coordination-model.md` 为准。
+`runtime_baton` 的恢复顺序与语义以 `common/docs/runtime-coordination-model.md` 为准。
 
 ## 7. Artifact Contract
 
@@ -160,7 +160,7 @@
 
 当前平台镜像来源：
 
-- `platforms/claude-code/agents/`
+- `platforms/claude-code/.claude/agents/`
 - `platforms/code-buddy/agents/`
 - `platforms/copilot-cli/agents/`
 - `platforms/copilot-ide/.github/agents/`
@@ -169,19 +169,19 @@
 镜像同步命令：
 
 ```bash
-python debugger/scripts/sync_platform_agents.py
+python scripts/sync_platform_scaffolds.py
 ```
 
 tool contract 校验命令：
 
 ```bash
-python debugger/scripts/validate_tool_contract.py --strict
+python scripts/validate_tool_contract.py --strict
 ```
 
 平台布局校验命令：
 
 ```bash
-python debugger/scripts/validate_platform_layout.py --strict
+python scripts/validate_platform_layout.py --strict
 ```
 
 

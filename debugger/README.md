@@ -40,5 +40,7 @@
 
 - 平台内 `common/` 默认只保留最小占位目录，用来等待整包覆盖
 - 未完成 `debugger/common/ -> platforms/<platform>/common/` 覆盖前，平台模板不可用
+- 平台入口选择必须遵循 shared docs 中的统一规则：可直达本地环境的宿主默认 local-first / `CLI`，不能直达本地环境的宿主默认 `MCP`
+- 任务开始时，Agent 必须向用户说明当前采用的入口模式；若所选入口的前置条件未满足，必须先阻断
 
 维护者说明位于 `docs/多平台适配说明.md`，其中描述模板 contract、`common/` 拷贝工作流与 scaffold 生成/校验方式。

@@ -2,6 +2,14 @@
 
 当前目录是 Codex 的 workspace-native 模板。Agent 的目标是使用 RenderDoc/RDC platform tools 调试 GPU 渲染问题。
 
+入口规则：
+
+- 当前宿主可直接访问本地进程、文件系统与 workspace，默认采用 local-first。
+- 默认入口是 `CLI`，按需叠加 daemon / context 维持长生命周期 runtime。
+- 只有用户明确要求按 `MCP` 接入时，才切换到 `MCP`。
+- 任务开始时，Agent 必须向用户说明当前采用的是 `CLI` 还是 `MCP`。
+- 若用户要求 `MCP`，但宿主未配置对应 MCP server，必须直接阻断并提示配置。
+
 使用方式：
 
 1. 将仓库根目录 `debugger/common/` 整体拷贝到当前平台根目录的 `common/`，覆盖占位内容。
@@ -18,5 +26,5 @@
 - 未完成 `debugger/common/` 覆盖前，当前平台模板不可用。
 - 未完成 `platform_adapter.json` 配置或 `tools_root` 校验前，Agent 必须拒绝执行依赖平台真相的工作。
 - `workspace/` 预生成空骨架；真实运行产物在平台使用阶段按 case/run 写入。
-- `multi_agent` 当前按 experimental / CLI-first 理解，但共享规则与 role config 已完整生成。
+- `multi_agent` 当前按 experimental / local-first 理解，但共享规则与 role config 已完整生成。
 - 当前宿主没有 native hooks；只有生成 `artifacts/run_compliance.yaml` 且 `status=passed` 后，结案才算合规。

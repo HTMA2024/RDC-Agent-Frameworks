@@ -23,6 +23,26 @@ The framework depends on two distinct layers:
 Host capabilities answer "what the host can express."
 Runtime contract answers "what is safe when driving live RenderDoc/RDC state."
 
+## Entry Selection Rule
+
+Framework docs must treat `CLI`, daemon, and `MCP` as different layers:
+
+- `CLI`
+  - local-first execution entry for hosts that can directly access local process, filesystem, and daemon
+- daemon
+  - long-lived runtime/context owner for cross-command and cross-turn work
+- `MCP`
+  - protocol bridge for hosts that cannot directly enter the local environment, or when the user explicitly requires `MCP`
+
+The framework must not describe `MCP` as the default entry for all agents.
+The correct decision boundary is:
+
+- can the host directly access the local environment
+- does the task need a long-lived runtime/context owner
+
+When the host can directly access the local environment, framework guidance should default to `CLI` / local-first.
+When the host cannot, framework guidance should default to `MCP`.
+
 ## Routing Policy vs Host Capability
 
 - `model_routing.json` defines which model family each role wants on each platform.
@@ -62,3 +82,9 @@ The following remain adapter/config concerns, not framework concepts:
 - host plugin package naming
 
 Those details belong in `platform_adapter.json`, `mcp_servers.json`, or generated host packaging, not in role prompts or routing policy prose.
+
+However, framework guidance must still require entry preconditions to be satisfied before execution starts:
+
+- local-first paths require a valid `tools_root`
+- `MCP` paths require the target host to have the expected MCP server configured
+- agents must tell the user which entry mode is being used before beginning platform-truth-dependent work

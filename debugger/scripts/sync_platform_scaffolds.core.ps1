@@ -259,7 +259,20 @@ function Readme([string]$PlatformKey) {
  "# $($caps.display_name) Template",
  "",
  "当前目录是 $($caps.display_name) 的 platform-local 模板。Agent 的目标是使用 RenderDoc/RDC platform tools 调试 GPU 渲染问题。",
- "",
+ ""
+ )
+ if ($PlatformKey -eq "manus") {
+  $lines += @(
+  "入口规则：",
+  "",
+  ('- 当前宿主默认不能直接进入本地环境，协议桥接路径默认采用 {0}。' -f (Code 'MCP')),
+  ('- 任务开始时，Agent 必须向用户说明当前采用的是 {0}。' -f (Code 'MCP')),
+  '- 若宿主未配置对应 MCP server，必须直接阻断并提示配置，不允许继续假设工具已接通。',
+  '- daemon 仍然是长生命周期 runtime / context 持有层，但它不改变当前宿主通过 `MCP` 桥接接入这一事实。',
+  ""
+  )
+ }
+ $lines += @(
  "使用方式：",
  "",
  ('1. 将仓库根目录 {0} 整体拷贝到当前平台根目录的 {1}，覆盖占位内容。' -f (Code 'debugger/common/'), (Code 'common/')),
@@ -277,6 +290,9 @@ function Readme([string]$PlatformKey) {
  ('- {0} 预生成空骨架；真实运行产物在平台使用阶段按 case/run 写入。' -f (Code 'workspace/')),
  ('- 维护者若重跑 scaffold，必须继续产出 platform-local {0} 最小占位目录，不得回退到跨级引用。' -f (Code 'common/'))
  )
+ if ($PlatformKey -eq "manus") {
+  $lines += '- 若对应 MCP server 未配置，Agent 必须像 `tools_root` 未配置一样阻断平台真相相关工作。'
+ }
  foreach ($note in $(Platform-Compliance-Notes $PlatformKey)) { $lines += $note }
  return ($lines -join "`n")
 }
@@ -592,6 +608,14 @@ function CodexReadme() {
   '',
   '当前目录是 Codex 的 workspace-native 模板。Agent 的目标是使用 RenderDoc/RDC platform tools 调试 GPU 渲染问题。',
   '',
+  '入口规则：',
+  '',
+  '- 当前宿主可直接访问本地进程、文件系统与 workspace，默认采用 local-first。',
+  ('- 默认入口是 {0}，按需叠加 daemon / context 维持长生命周期 runtime。' -f (Code 'CLI')),
+  ('- 只有用户明确要求按 {0} 接入时，才切换到 {0}。' -f (Code 'MCP')),
+  ('- 任务开始时，Agent 必须向用户说明当前采用的是 {0} 还是 {1}。' -f (Code 'CLI'), (Code 'MCP')),
+  '- 若用户要求 `MCP`，但宿主未配置对应 MCP server，必须直接阻断并提示配置。',
+  '',
   '使用方式：',
   '',
   ('1. 将仓库根目录 {0} 整体拷贝到当前平台根目录的 {1}，覆盖占位内容。' -f (Code 'debugger/common/'), (Code 'common/')),
@@ -608,7 +632,7 @@ function CodexReadme() {
   ('- 未完成 {0} 覆盖前，当前平台模板不可用。' -f (Code 'debugger/common/')),
   ('- 未完成 {0} 配置或 {1} 校验前，Agent 必须拒绝执行依赖平台真相的工作。' -f (Code 'platform_adapter.json'), (Code 'tools_root')),
   ('- {0} 预生成空骨架；真实运行产物在平台使用阶段按 case/run 写入。' -f (Code 'workspace/')),
-  ('- {0} 当前按 experimental / CLI-first 理解，但共享规则与 role config 已完整生成。' -f (Code 'multi_agent'))
+  ('- {0} 当前按 experimental / local-first 理解，但共享规则与 role config 已完整生成。' -f (Code 'multi_agent'))
  )
  $lines += $(Platform-Compliance-Notes "codex")
  return ($lines -join "`n")

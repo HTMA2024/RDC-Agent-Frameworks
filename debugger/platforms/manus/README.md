@@ -2,6 +2,13 @@
 
 当前目录是 Manus 的 platform-local 模板。Agent 的目标是使用 RenderDoc/RDC platform tools 调试 GPU 渲染问题。
 
+入口规则：
+
+- 当前宿主默认不能直接进入本地环境，协议桥接路径默认采用 `MCP`。
+- 任务开始时，Agent 必须向用户说明当前采用的是 `MCP`。
+- 若宿主未配置对应 MCP server，必须直接阻断并提示配置，不允许继续假设工具已接通。
+- daemon 仍然是长生命周期 runtime / context 持有层，但它不改变当前宿主通过 `MCP` 桥接接入这一事实。
+
 使用方式：
 
 1. 将仓库根目录 `debugger/common/` 整体拷贝到当前平台根目录的 `common/`，覆盖占位内容。
@@ -18,5 +25,6 @@
 - 未完成 `platform_adapter.json` 配置或 `tools_root` 校验前，Agent 必须拒绝执行依赖平台真相的工作。
 - `workspace/` 预生成空骨架；真实运行产物在平台使用阶段按 case/run 写入。
 - 维护者若重跑 scaffold，必须继续产出 platform-local `common/` 最小占位目录，不得回退到跨级引用。
+- 若对应 MCP server 未配置，Agent 必须像 `tools_root` 未配置一样阻断平台真相相关工作。
 - 当前宿主按 `workflow_stage` 降级运行；最终仍必须生成 `artifacts/run_compliance.yaml` 才算合规结案。
 - 不得在该宿主上模拟实时 multi-agent handoff。

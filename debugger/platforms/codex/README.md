@@ -15,16 +15,18 @@
 1. 将仓库根目录 `debugger/common/` 整体拷贝到当前平台根目录的 `common/`，覆盖占位内容。
 2. 在 `common/config/platform_adapter.json` 中配置 `paths.tools_root`。
 3. 确认 `validation.required_paths` 在 `<resolved tools_root>/` 下全部存在。
-4. 使用当前平台根目录同级的 `workspace/` 作为运行区。
-5. 完成覆盖后，打开当前目录作为 Codex workspace root。
-6. 正常用户请求从 `team_lead` 发起；其他 specialist 默认是 internal/debug-only。
-7. `AGENTS.md`、`.agents/skills/`、`.codex/config.toml` 与 `.codex/agents/*.toml` 只允许引用当前平台根目录的 common/。
+4. 正式发起 debug 前，用户必须在当前对话提交至少一份 `.rdc`。
+5. 使用当前平台根目录同级的 `workspace/` 作为运行区。
+6. 完成覆盖后，打开当前目录作为 Codex workspace root。
+7. 正常用户请求从 `team_lead` 发起；其他 specialist 默认是 internal/debug-only。
+8. `AGENTS.md`、`.agents/skills/`、`.codex/config.toml` 与 `.codex/agents/*.toml` 只允许引用当前平台根目录的 common/。
 
 约束：
 
 - `common/` 默认只保留一个占位文件；正式共享正文仍由顶层 `debugger/common/` 提供，并由用户显式拷入。
 - 未完成 `debugger/common/` 覆盖前，当前平台模板不可用。
 - 未完成 `platform_adapter.json` 配置或 `tools_root` 校验前，Agent 必须拒绝执行依赖平台真相的工作。
+- 未提供 `.rdc` 时，Agent 必须以 `BLOCKED_MISSING_CAPTURE` 直接阻断，不得初始化 case/run 或继续 triage、investigation、planning。
 - `workspace/` 预生成空骨架；真实运行产物在平台使用阶段按 case/run 写入。
 - `multi_agent` 当前按 experimental / local-first 理解，但共享规则与 role config 已完整生成。
 - 当前宿主没有 native hooks；只有生成 `artifacts/run_compliance.yaml` 且 `status=passed` 后，结案才算合规。

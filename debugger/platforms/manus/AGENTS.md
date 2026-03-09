@@ -15,6 +15,7 @@
 - 正常用户入口只有 `team_lead`
 - 其他 specialist 默认是 internal/debug-only，由 `team_lead` 决定是否分派
 - `platform_adapter.json` 未配置或 `tools_root` 校验失败时，必须立即停止，不得继续做依赖平台真相的工作
+- 用户未提交 `.rdc` 时，必须以 `BLOCKED_MISSING_CAPTURE` 停止，不得初始化 case/run 或继续做 debug、investigation、tool planning
 
 未先将顶层 `debugger/common/` 拷入当前平台根目录的 `common/` 之前，不允许在宿主中使用当前平台模板。
 

@@ -37,7 +37,7 @@ Agent 的目标始终是使用 RenderDoc/RDC platform tools 调试 GPU 渲染问
 
 它始终解析到当前平台根目录下、与 `common/` 同级的 `workspace/`。
 
-## 3. case/run 模型
+## 3. Capture-First case/run 模型
 
 目录约定：
 
@@ -46,25 +46,37 @@ workspace/
   cases/
     <case_id>/
       case.yaml
+      inputs/
+        captures/
+          manifest.yaml
+          <capture_id>.rdc
       runs/
         <run_id>/
           run.yaml
+          capture_refs.yaml
           artifacts/
           logs/
           notes/
-          captures/
           screenshots/
           reports/
 ```
 
 语义：
 
-- `case_id`：需求线程/问题实例
+- `case_id`：已取得至少一份 `.rdc` 的问题实例
 - `run_id`：某一次调试轮次；承担 debug version
+- `inputs/captures/`：当前 case 的原始 capture 输入池
+- `capture_refs.yaml`：本次 run 实际采用的 capture 集合与角色
 
 最小规则：
 
+- `.rdc` 是创建 case 的硬前置条件；未拿到 `.rdc` 前，不创建 `case_id`、`run_id`、`workspace_run_root`
 - 同一 case 只允许一个 `current_run`
+- `case.yaml` 至少记录 `current_run` 与 `active_capture_set`
+- 原始 `.rdc` 只允许落在 `inputs/captures/`，不得落在 `runs/<run_id>/`
+- `inputs/captures/manifest.yaml` 记录所有导入 capture 的 `capture_id`、`file_name`、`sha256`、`source=user_upload`、`imported_at`、`role_hint`、`status`
+- `runs/<run_id>/capture_refs.yaml` 记录本次 run 实际采用的 capture ids，支持 `anomalous`、`baseline`、`supplemental` 等角色
+- 新上传 `.rdc` 默认 append 到当前 case 的输入池，不覆盖已有 capture
 - `reports/` 只放 `report.md` 与 `visual_report.html`
 - 图片默认复用 `screenshots/`
 - 第一层 gate artifacts 不复制到 `workspace/`，只在 `run.yaml` 中记录引用
@@ -98,10 +110,13 @@ workspace/
 - `../workspace/cases/<case_id>/runs/<run_id>/notes/`
 - `../workspace/cases/<case_id>/runs/<run_id>/artifacts/`
 - `../workspace/cases/<case_id>/runs/<run_id>/logs/`
-- `../workspace/cases/<case_id>/runs/<run_id>/captures/`
+- `../workspace/cases/<case_id>/case.yaml`
+- `../workspace/cases/<case_id>/inputs/captures/manifest.yaml`
+- `../workspace/cases/<case_id>/runs/<run_id>/capture_refs.yaml`
 
 第二层额外规则：
 
 - derived deliverables，不是 source of truth
+- 不得把原始 `.rdc` 复制到 `runs/<run_id>/`
 - 不得创造第一层不存在的新事实
 - 不得为了展示效果反写 `BugFull`、`BugCard`、session artifacts

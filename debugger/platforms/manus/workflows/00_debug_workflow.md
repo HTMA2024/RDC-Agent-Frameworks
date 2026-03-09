@@ -9,11 +9,11 @@
 1. `tools preflight`
  - 校验 `platform_adapter.json` 与 `tools_root`
 2. `team_lead intake`
- - 接收用户请求，决定 triage / capture / specialist 的推进顺序
+ - 先检查用户是否已提交 `.rdc`；若缺失则以 `BLOCKED_MISSING_CAPTURE` 直接阻断
 3. `triage`
- - 结构化现象、触发条件、可能的 SOP 入口
+ - 仅在 capture intake 完成后，结构化现象、触发条件、可能的 SOP 入口
 4. `capture/session`
- - 确认 `.rdc`、session、frame、event anchor
+ - 确认 case 级 capture 输入池中的 `.rdc`、session、frame、event anchor
 5. `specialist analysis`
  - 从 pipeline、forensics、shader、driver 四个方向收集证据
 6. `skeptic`
@@ -25,6 +25,7 @@
 
 - Manus 不承担 custom agents / per-agent model 的宿主能力。
 - `tools_root` 未配置或校验失败时必须立即停止。
+- 用户未提交 `.rdc` 时必须以 `BLOCKED_MISSING_CAPTURE` 立即停止。
 - workflow 的每一阶段都必须引用共享 artifact contract。
 - `workflow_stage` 是该平台的协作上限，不模拟 team-agent 实时协作。
 - remote 阶段由单一 runtime owner 顺序完成 `rd.remote.connect -> rd.remote.ping -> rd.capture.open_file -> rd.capture.open_replay -> re-anchor -> collect evidence`。

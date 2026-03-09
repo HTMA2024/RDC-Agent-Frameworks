@@ -21,14 +21,22 @@
 收到 Bug 报告后，按以下顺序初始化调试会话：
 
 ```
-Step 0: 初始化 `case_id`、`run_id`、`workspace_run_root=../workspace/cases/<case_id>/runs/<run_id>`
-Step 1: 调用 Triage Agent → 获得 {symptom_tags, trigger_tags, candidate_invariants, recommended_sop, causal_axis, disallowed_shortcuts}
-Step 2: 查阅 invariant_library.yaml，结合 Triage 结果构建初始假设板
-Step 3: 先由 Capture & Repro Agent 建立 capture/session anchor
-Step 4: 再由 Forensics / Pipeline / Shader 相关 Agent 建立 causal_anchor
-Step 5: 只有在 causal_anchor 建立后，才允许推进根因级专家分析与验证
-Step 6: 设置每个子任务的质量门槛（每个专家 Agent 的输出必须满足其角色的 output_requirements）
-Step 7: 维护 `case.yaml.current_run` 与 `run.yaml.debug_version/session_id/status`
+Step 0: 先检查用户是否已在当前对话提交至少一份 `.rdc`
+Step 1: 若缺失 `.rdc` → 立即输出 `BLOCKED_MISSING_CAPTURE` 标准阻断提示，并停止后续推进
+Step 2: 完成 capture intake 后，再初始化 `case_id`、`run_id`、`workspace_run_root=../workspace/cases/<case_id>/runs/<run_id>`
+Step 3: 调用 Triage Agent → 获得 {symptom_tags, trigger_tags, candidate_invariants, recommended_sop, causal_axis, disallowed_shortcuts}
+Step 4: 查阅 invariant_library.yaml，结合 Triage 结果构建初始假设板
+Step 5: 先由 Capture & Repro Agent 建立 capture/session anchor
+Step 6: 再由 Forensics / Pipeline / Shader 相关 Agent 建立 causal_anchor
+Step 7: 只有在 causal_anchor 建立后，才允许推进根因级专家分析与验证
+Step 8: 设置每个子任务的质量门槛（每个专家 Agent 的输出必须满足其角色的 output_requirements）
+Step 9: 维护 `case.yaml.current_run`、`case.yaml.active_capture_set` 与 `run.yaml.debug_version/session_id/status`
+```
+
+`BLOCKED_MISSING_CAPTURE` 的标准阻断消息：
+
+```text
+当前任务缺少必需的 capture 输入：本框架只接受基于 RenderDoc `.rdc` 的第一性调试。请先在当前对话中提交一份或多份 `.rdc` 文件；收到并导入 capture 前，Agent 不会继续进行 debug、调查分派或根因判断。
 ```
 
 在进入任何 live 调试动作前，你必须先根据平台 `coordination_mode` 选择编排方式：
@@ -130,12 +138,19 @@ remote 规则：
 你负责初始化并维护本次 case 的运行区：
 
 - `../workspace/cases/<case_id>/case.yaml`
+- `../workspace/cases/<case_id>/inputs/captures/manifest.yaml`
 - `../workspace/cases/<case_id>/runs/<run_id>/run.yaml`
+- `../workspace/cases/<case_id>/runs/<run_id>/capture_refs.yaml`
 
 硬规则：
 
+- 未拿到至少一份 `.rdc` 前，不得初始化 `case_id`、`run_id`、`workspace_run_root`
 - `case_id` 对应需求线程/问题实例；`run_id` 对应一次具体调试轮次
+- `case_id` 只对应已导入 capture 的调试实例；无 capture 的请求直接停在 `BLOCKED_MISSING_CAPTURE`
 - 同一 case 只允许一个 `current_run`
+- `case.yaml` 必须维护 `active_capture_set`
+- 原始 `.rdc` 只允许落在 `../workspace/cases/<case_id>/inputs/captures/`
+- `capture_refs.yaml` 必须显式记录当前 run 实际采用的 capture ids 与角色
 - `workspace_run_root` 必须在所有 TASK_DISPATCH 中显式下发
 - `workspace/` 只承载运行现场和第二层交付物；第一层 gate artifacts 仍写入 `common/knowledge/library/**`
 
@@ -268,7 +283,7 @@ session_status:
   case_id: "<case_id>"
   run_id: "<run_id>"
   session_id: "<ID>"
-  current_phase: "<intake|triage|investigation|validation|reporting>"
+current_phase: "<intake|triage|investigation|validation|reporting>"
   hypothesis_board_summary:
     active: <数量>
     validated: <数量>
@@ -277,6 +292,17 @@ session_status:
   next_actions:
     - agent: <agent_id>
       task: "<简短描述>"
+```
+
+若当前任务缺少 `.rdc`，则改为输出：
+
+```yaml
+session_status:
+  current_phase: blocked
+  blocking_issues:
+    - code: BLOCKED_MISSING_CAPTURE
+      message: "请先在当前对话中提交一份或多份 `.rdc` 文件。"
+  next_actions: []
 ```
 
 ---

@@ -9,10 +9,12 @@
 1. 配置 `common/config/platform_adapter.json`
 2. 将 `paths.tools_root` 指向有效的 `RDC-Agent-Tools` 根目录
 3. 确认 `validation.required_paths` 中的文件在 `<resolved tools_root>/` 下存在
+4. 进入实际 debug workflow 前，用户必须在当前对话提交至少一份 `.rdc`
 
 未完成以上步骤前：
 
 - Agent 不得进入依赖平台真相的工作
+- 未提供 `.rdc` 时，Agent 必须以 `BLOCKED_MISSING_CAPTURE` 阻断，不得初始化 case/run 或继续调查
 - skills、README、AGENT_CORE 与平台模板都只能提供 framework 约束，不能替代 Tools 真相
 
 ## 运行时共享文档入口
@@ -35,6 +37,7 @@
 4. 确认 `validation.required_paths` 校验通过
 5. 完成覆盖后，在对应宿主中打开该平台根目录
 6. 正常用户请求从 `team_lead` 发起；其他 specialist 角色默认是 internal/debug-only
+7. 发起 debug 任务时，用户必须在当前对话提交一份或多份 `.rdc`
 
 说明：
 
@@ -42,5 +45,6 @@
 - 未完成 `debugger/common/ -> platforms/<platform>/common/` 覆盖前，平台模板不可用
 - 平台入口选择必须遵循 shared docs 中的统一规则：可直达本地环境的宿主默认 local-first / `CLI`，不能直达本地环境的宿主默认 `MCP`
 - 任务开始时，Agent 必须向用户说明当前采用的入口模式；若所选入口的前置条件未满足，必须先阻断
+- 缺少 `.rdc` 时，Agent 必须像 `tools_root` 未配置一样直接阻断，不得继续做 triage、investigation 或 planning
 
 维护者说明位于 `docs/多平台适配说明.md`，其中描述模板 contract、`common/` 拷贝工作流与 scaffold 生成/校验方式。

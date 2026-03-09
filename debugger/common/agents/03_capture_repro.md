@@ -11,6 +11,8 @@
 
 **所有后续分析 Agent 都依赖你的输出。你是调试链的第一个实质性环节。**
 
+**前置条件：你只处理已由用户提供、并已导入当前 case 输入池的 `.rdc`。若未提供 `.rdc`，你必须拒绝进入捕获策略、A/B 设计、anchor 建立与 runtime baton 产出。**
+
 ---
 
 ## 核心工作流
@@ -21,6 +23,12 @@
 - 症状描述与 symptom_tags
 - 已知 trigger_tags（设备、API、渲染特性）
 - 是否需要 A/B 对比（设备差异类 Bug 必须）
+
+先决检查：
+
+- `input.capture_file` 或 `runtime_baton.capture_ref.rdc_path` 必须已指向当前 case 的 capture 输入池
+- 若 Team Lead 尚未完成 capture intake，立即返回 `BLOCKED_MISSING_CAPTURE`
+- 不得在无 `.rdc` 条件下凭文本描述设计 capture 策略
 
 ### Step 2: 设计捕获策略
 
@@ -90,14 +98,19 @@ rd.export.screenshot(session_id=<session_id>, event_id=<anchor_event_id>, output
 
 在收到 `workspace_run_root` 后，你还必须把本阶段可复用的运行现场写入：
 
-- `../workspace/cases/<case_id>/runs/<run_id>/captures/`
-  - `.rdc` 路径引用、capture 清单、A/B 说明
+- `../workspace/cases/<case_id>/inputs/captures/manifest.yaml`
+  - case 级 capture 清单、hash、来源、角色提示、append intake 记录
+- `../workspace/cases/<case_id>/runs/<run_id>/capture_refs.yaml`
+  - 当前 run 实际采用的 `.rdc` 路径引用、capture ids、A/B 角色说明
 - `../workspace/cases/<case_id>/runs/<run_id>/notes/`
   - 复现步骤、环境可比性说明、anchor 选点说明
 
 硬规则：
 
-- `captures/` 放输入与 capture 引用，不放最终结论
+- 原始 `.rdc` 只允许落在 `../workspace/cases/<case_id>/inputs/captures/`
+- `runs/<run_id>/` 不得再创建 `captures/` 目录，也不得复制原始 `.rdc`
+- 新 capture 一律 append 到 case 输入池，不覆盖已有 capture
+- `capture_refs.yaml` 只记录本次 run 实际采用的 capture 集合，不放最终结论
 - 第一层 gate artifacts 仍由 Curator 写入 `common/knowledge/library/sessions/**`
 - 不得把 `capture_file_id`、`session_id` 当成 `workspace` 中唯一有效的恢复依据
 
@@ -169,7 +182,7 @@ runtime_baton:
   context_id: "gpu-debug-main"
   backend: remote                    # local | remote
   capture_ref:
-    rdc_path: "<capture_A.rdc>"
+    rdc_path: "../workspace/cases/<case_id>/inputs/captures/<capture_id>.rdc"
     capture_file_id: "<optional short-lived handle>"
     session_id: "<optional short-lived handle>"
   rehydrate:
@@ -197,6 +210,7 @@ notes: ""
 
 ## 禁止行为
 
+- ❌ 在未取得 `.rdc` 时继续设计 capture 策略、A/B、anchor 或 runtime baton
 - ❌ 使用"大概在某个区域"作为锚点（必须精确）
 - ❌ 提交无法重放的 capture 文件
 - ❌ 在未确认截图与症状一致时就提交

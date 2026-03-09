@@ -206,21 +206,22 @@ function Common-Placeholder-Files([string]$PlatformKey) {
 function Workspace-Placeholder-Files([string]$PlatformKey) {
  $workspaceRoot = Join-Path (Package-Root $PlatformKey) "workspace"
  $expected = @{}
- Add-Expected $expected (Join-Path $workspaceRoot "README.md") @'
+Add-Expected $expected (Join-Path $workspaceRoot "README.md") @'
 # Platform Local Workspace Placeholder
 
 当前目录是平台本地 `workspace/` 运行区骨架。
 
 用途：
 
-- 存放 `case_id/run_id` 级运行现场
-- 承载 `captures/`、`screenshots/`、`artifacts/`、`logs/`、`notes/`
+- 存放 capture-first 的 `case_id/run_id` 级运行现场
+- 承载 case 级 `inputs/captures/`、run 级 `screenshots/`、`artifacts/`、`logs/`、`notes/`
 - 承载第二层交付物 `reports/report.md` 与 `reports/visual_report.html`
 
 约束：
 
 - 这里不是共享真相；共享真相仍由同级 `common/` 提供。
 - `common/` 中的 shared prompt / skill / docs 应通过 `../workspace` 引用当前目录。
+- 原始 `.rdc` 只允许落在 `cases/<case_id>/inputs/captures/`，不得落在 `runs/<run_id>/`
 - 模板仓库只保留占位骨架，不提交真实运行产物。
 '@
  Add-Expected $expected (Join-Path $workspaceRoot "cases\README.md") @'
@@ -234,21 +235,28 @@ function Workspace-Placeholder-Files([string]$PlatformKey) {
 cases/
   <case_id>/
     case.yaml
+    inputs/
+      captures/
+        manifest.yaml
+        <capture_id>.rdc
     runs/
       <run_id>/
         run.yaml
+        capture_refs.yaml
         artifacts/
         logs/
         notes/
-        captures/
         screenshots/
         reports/
 ```
 
 规则：
 
+- `.rdc` 是创建 case 的硬前置条件；未提供 capture 时不得初始化 case/run
 - `case_id` 是问题实例/需求线程的稳定标识。
+- `case_id` 只对应已导入 capture 的调试实例。
 - `run_id` 承担 debug version。
+- 原始 `.rdc` 只允许落在 `inputs/captures/`；run 只保留 capture 引用与派生产物。
 - 第一层 session artifacts 仍写入同级 `common/knowledge/library/sessions/`；`workspace/` 不复制 gate 真相。
 '@
  return $expected
@@ -278,15 +286,17 @@ function Readme([string]$PlatformKey) {
  ('1. 将仓库根目录 {0} 整体拷贝到当前平台根目录的 {1}，覆盖占位内容。' -f (Code 'debugger/common/'), (Code 'common/')),
  ('2. 在当前平台根目录的 {0} 中配置 {1}。' -f (Code 'common/config/platform_adapter.json'), (Code 'paths.tools_root')),
  ('3. 确认 {0} 在 {1} 下全部存在。' -f (Code 'validation.required_paths'), (Code '<resolved tools_root>/')),
- ('4. 使用当前平台根目录同级的 {0} 作为运行区。' -f (Code 'workspace/')),
- "5. 完成覆盖后，再在对应宿主中打开当前平台根目录。",
- ('6. 正常用户请求从 {0} 发起；其他 specialist 默认是 internal/debug-only。' -f (Code 'team_lead')),
+ ('4. 正式发起 debug 前，用户必须在当前对话提交至少一份 {0}。' -f (Code '.rdc')),
+ ('5. 使用当前平台根目录同级的 {0} 作为运行区。' -f (Code 'workspace/')),
+ "6. 完成覆盖后，再在对应宿主中打开当前平台根目录。",
+ ('7. 正常用户请求从 {0} 发起；其他 specialist 默认是 internal/debug-only。' -f (Code 'team_lead')),
  "",
  "约束：",
  "",
  ('- {0} 默认只保留一个占位文件；正式共享正文仍由顶层 {1} 提供，并由用户显式拷入。' -f (Code 'common/'), (Code 'debugger/common/')),
  ('- 未完成 {0} 覆盖前，当前平台模板不可用。' -f (Code 'debugger/common/')),
  ('- 未完成 {0} 配置或 {1} 校验前，Agent 必须拒绝执行依赖平台真相的工作。' -f (Code 'platform_adapter.json'), (Code 'tools_root')),
+ ('- 未提供 {0} 时，Agent 必须以 {1} 直接阻断，不得初始化 case/run 或继续 triage、investigation、planning。' -f (Code '.rdc'), (Code 'BLOCKED_MISSING_CAPTURE')),
  ('- {0} 预生成空骨架；真实运行产物在平台使用阶段按 case/run 写入。' -f (Code 'workspace/')),
  ('- 维护者若重跑 scaffold，必须继续产出 platform-local {0} 最小占位目录，不得回退到跨级引用。' -f (Code 'common/'))
  )
@@ -318,9 +328,10 @@ function PlatformAgentsMd([string]$PlatformKey, [string]$TargetFile) {
  "",
  '强制规则：',
  '',
- ('- 正常用户入口只有 {0}' -f (Code 'team_lead')),
- ('- 其他 specialist 默认是 internal/debug-only，由 {0} 决定是否分派' -f (Code 'team_lead')),
- ('- {0} 未配置或 {1} 校验失败时，必须立即停止，不得继续做依赖平台真相的工作' -f (Code 'platform_adapter.json'), (Code 'tools_root')),
+('- 正常用户入口只有 {0}' -f (Code 'team_lead')),
+('- 其他 specialist 默认是 internal/debug-only，由 {0} 决定是否分派' -f (Code 'team_lead')),
+('- {0} 未配置或 {1} 校验失败时，必须立即停止，不得继续做依赖平台真相的工作' -f (Code 'platform_adapter.json'), (Code 'tools_root')),
+ ('- 用户未提交 {0} 时，必须以 {1} 停止，不得初始化 case/run 或继续做 debug、investigation、tool planning' -f (Code '.rdc'), (Code 'BLOCKED_MISSING_CAPTURE')),
  '',
  "$CopyNotice",
  '',
@@ -508,15 +519,15 @@ function ManusWorkflow() {
  '## 阶段',
  '',
  ('1. {0}' -f (Code 'tools preflight')),
- (' - 校验 {0} 与 {1}' -f (Code 'platform_adapter.json'), (Code 'tools_root')),
- ('2. {0}' -f (Code 'team_lead intake')),
- ' - 接收用户请求，决定 triage / capture / specialist 的推进顺序',
- ('3. {0}' -f (Code 'triage')),
- ' - 结构化现象、触发条件、可能的 SOP 入口',
- ('4. {0}' -f (Code 'capture/session')),
- (' - 确认 {0}、session、frame、event anchor' -f (Code '.rdc')),
- ('5. {0}' -f (Code 'specialist analysis')),
- ' - 从 pipeline、forensics、shader、driver 四个方向收集证据',
+  (' - 校验 {0} 与 {1}' -f (Code 'platform_adapter.json'), (Code 'tools_root')),
+  ('2. {0}' -f (Code 'team_lead intake')),
+  (' - 先检查用户是否已提交 {0}；若缺失则以 {1} 直接阻断' -f (Code '.rdc'), (Code 'BLOCKED_MISSING_CAPTURE')),
+  ('3. {0}' -f (Code 'triage')),
+  ' - 仅在 capture intake 完成后，结构化现象、触发条件、可能的 SOP 入口',
+  ('4. {0}' -f (Code 'capture/session')),
+  (' - 确认 case 级 capture 输入池中的 {0}、session、frame、event anchor' -f (Code '.rdc')),
+  ('5. {0}' -f (Code 'specialist analysis')),
+  ' - 从 pipeline、forensics、shader、driver 四个方向收集证据',
  ('6. {0}' -f (Code 'skeptic')),
  ' - 复核证据链是否足以支持结论',
  ('7. {0}' -f (Code 'curation')),
@@ -526,6 +537,7 @@ function ManusWorkflow() {
  '',
  '- Manus 不承担 custom agents / per-agent model 的宿主能力。',
  ('- {0} 未配置或校验失败时必须立即停止。' -f (Code 'tools_root')),
+ ('- 用户未提交 {0} 时必须以 {1} 立即停止。' -f (Code '.rdc'), (Code 'BLOCKED_MISSING_CAPTURE')),
  '- workflow 的每一阶段都必须引用共享 artifact contract。',
  ('- {0} 是该平台的协作上限，不模拟 team-agent 实时协作。' -f (Code 'workflow_stage')),
  ('- remote 阶段由单一 runtime owner 顺序完成 {0}。' -f (Code 'rd.remote.connect -> rd.remote.ping -> rd.capture.open_file -> rd.capture.open_replay -> re-anchor -> collect evidence')),
@@ -621,16 +633,18 @@ function CodexReadme() {
   ('1. 将仓库根目录 {0} 整体拷贝到当前平台根目录的 {1}，覆盖占位内容。' -f (Code 'debugger/common/'), (Code 'common/')),
   ('2. 在 {0} 中配置 {1}。' -f (Code 'common/config/platform_adapter.json'), (Code 'paths.tools_root')),
   ('3. 确认 {0} 在 {1} 下全部存在。' -f (Code 'validation.required_paths'), (Code '<resolved tools_root>/')),
-  ('4. 使用当前平台根目录同级的 {0} 作为运行区。' -f (Code 'workspace/')),
-  '5. 完成覆盖后，打开当前目录作为 Codex workspace root。',
-  ('6. 正常用户请求从 {0} 发起；其他 specialist 默认是 internal/debug-only。' -f (Code 'team_lead')),
-  ('7. {0}、{1}、{2} 与 {3} 只允许引用当前平台根目录的 common/。' -f (Code 'AGENTS.md'), (Code '.agents/skills/'), (Code '.codex/config.toml'), (Code '.codex/agents/*.toml')),
+  ('4. 正式发起 debug 前，用户必须在当前对话提交至少一份 {0}。' -f (Code '.rdc')),
+  ('5. 使用当前平台根目录同级的 {0} 作为运行区。' -f (Code 'workspace/')),
+  '6. 完成覆盖后，打开当前目录作为 Codex workspace root。',
+  ('7. 正常用户请求从 {0} 发起；其他 specialist 默认是 internal/debug-only。' -f (Code 'team_lead')),
+  ('8. {0}、{1}、{2} 与 {3} 只允许引用当前平台根目录的 common/。' -f (Code 'AGENTS.md'), (Code '.agents/skills/'), (Code '.codex/config.toml'), (Code '.codex/agents/*.toml')),
   '',
   '约束：',
   '',
   ('- {0} 默认只保留一个占位文件；正式共享正文仍由顶层 {1} 提供，并由用户显式拷入。' -f (Code 'common/'), (Code 'debugger/common/')),
   ('- 未完成 {0} 覆盖前，当前平台模板不可用。' -f (Code 'debugger/common/')),
   ('- 未完成 {0} 配置或 {1} 校验前，Agent 必须拒绝执行依赖平台真相的工作。' -f (Code 'platform_adapter.json'), (Code 'tools_root')),
+  ('- 未提供 {0} 时，Agent 必须以 {1} 直接阻断，不得初始化 case/run 或继续 triage、investigation、planning。' -f (Code '.rdc'), (Code 'BLOCKED_MISSING_CAPTURE')),
   ('- {0} 预生成空骨架；真实运行产物在平台使用阶段按 case/run 写入。' -f (Code 'workspace/')),
   ('- {0} 当前按 experimental / local-first 理解，但共享规则与 role config 已完整生成。' -f (Code 'multi_agent'))
  )

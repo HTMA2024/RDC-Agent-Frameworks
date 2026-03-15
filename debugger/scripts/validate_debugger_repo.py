@@ -307,6 +307,25 @@ def _spec_store_findings(root: Path) -> list[str]:
     return findings
 
 
+def _intake_contract_findings(root: Path) -> list[str]:
+    findings: list[str] = []
+    required = [
+        root / "common" / "docs" / "intake" / "README.md",
+        root / "common" / "docs" / "intake" / "USER_PROMPT_TEMPLATE.md",
+        root / "common" / "docs" / "intake" / "USER_PROMPT_MINIMAL.md",
+        root / "common" / "docs" / "intake" / "examples" / "example_single.md",
+        root / "common" / "docs" / "intake" / "examples" / "example_cross_device.md",
+        root / "common" / "docs" / "intake" / "examples" / "example_regression.md",
+        root / "common" / "hooks" / "validators" / "intake_validator.py",
+        root / "common" / "hooks" / "schemas" / "intake_case_input_schema.yaml",
+        root / "common" / "hooks" / "schemas" / "fix_verification_schema.yaml",
+    ]
+    for path in required:
+        if not path.exists():
+            findings.append(f"missing intake contract path: {path}")
+    return findings
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Validate debugger repo")
     parser.add_argument("--strict", action="store_true", help="return non-zero when findings exist")
@@ -328,6 +347,7 @@ def main() -> int:
 
     findings.extend(_compliance_findings(root))
     findings.extend(_spec_store_findings(root))
+    findings.extend(_intake_contract_findings(root))
     findings.extend(_model_routing_findings(root))
 
     if findings:

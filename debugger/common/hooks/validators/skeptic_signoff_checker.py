@@ -40,12 +40,13 @@ ANSI_YELLOW = "\033[93m"
 ANSI_CYAN   = "\033[96m"
 ANSI_RESET  = "\033[0m"
 
-FIVE_BLADES = [
+REQUIRED_BLADES = [
     "刀1: 相关性刀",
     "刀2: 覆盖性刀",
     "刀3: 反事实刀",
     "刀4: 工具证据刀",
     "刀5: 替代假设刀",
+    "刀6: 语义基准刀",
 ]
 
 
@@ -85,12 +86,12 @@ def _validate_blade_review(blade_review, prefix: str) -> list[str]:
         if result not in ("pass", "fail"):
             issues.append(f"{prefix}blade_review[{idx}].result 必须为 'pass' 或 'fail'")
 
-    # 五把刀覆盖检查（支持部分匹配）
-    for blade in FIVE_BLADES:
+    # 六把刀覆盖检查（支持部分匹配）
+    for blade in REQUIRED_BLADES:
         blade_key = blade.split(": ", 1)[1]  # 如 "相关性刀"
         found = any(isinstance(rb, str) and (blade_key in rb) for rb in reviewed_blades)
         if not found:
-            issues.append(f"{prefix}[五把刀] '{blade}' 未被检验")
+            issues.append(f"{prefix}[六把刀] '{blade}' 未被检验")
 
     return issues
 

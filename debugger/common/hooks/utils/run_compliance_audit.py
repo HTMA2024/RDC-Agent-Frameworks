@@ -28,9 +28,13 @@ except ModuleNotFoundError:
 UTILS_ROOT = Path(__file__).resolve().parent
 if str(UTILS_ROOT) not in sys.path:
     sys.path.insert(0, str(UTILS_ROOT))
+VALIDATORS_ROOT = Path(__file__).resolve().parents[1] / "validators"
+if str(VALIDATORS_ROOT) not in sys.path:
+    sys.path.insert(0, str(VALIDATORS_ROOT))
 
 from knowledge_evolution import default_promotion_metrics, upsert_candidate  # noqa: E402
 from spec_store import active_spec_versions, load_active_sops, spec_snapshot_ref  # noqa: E402
+from intake_validator import validate_case_input  # noqa: E402
 
 
 ACTION_SPECIALISTS = {
@@ -50,6 +54,7 @@ SESSION_RE = re.compile(r"\bsession_id\s*[:=]\s*([A-Za-z0-9._-]+)")
 CAPTURE_FILE_RE = re.compile(r"\bcapture_file_id\s*[:=]\s*([A-Za-z0-9._-]+)")
 EVENT_RE = re.compile(r"\bevent[_\s:=#-]*(\d+)\b", re.IGNORECASE)
 FINAL_VERDICT_RE = re.compile(r"DEBUGGER_FINAL_VERDICT|final verdict|最终裁决|结案", re.IGNORECASE)
+FIX_VERIFICATION_SCHEMA = Path(__file__).resolve().parents[1] / "schemas" / "fix_verification_schema.yaml"
 
 
 def _debugger_root(default: Path | None = None) -> Path:
@@ -167,6 +172,69 @@ def _ensure_event_ref(ref: str, events: dict[str, dict[str, Any]], issues: list[
         issues.append(f"{prefix}{ref} schema_version must be {ACTION_CHAIN_SCHEMA}")
 
 
+def _path_ref_matches(ref: str, expected: Path) -> bool:
+    normalized_ref = str(ref or "").strip().replace("\\", "/")
+    normalized_expected = _norm(expected)
+    if normalized_ref == normalized_expected or normalized_ref.endswith(normalized_expected):
+        return True
+    for marker in ("/workspace/", "/common/"):
+        if marker in normalized_ref and marker in normalized_expected:
+            if normalized_ref[normalized_ref.index(marker):] == normalized_expected[normalized_expected.index(marker):]:
+                return True
+    return False
+
+
+def _fix_verification_issues(data: Any) -> list[str]:
+    issues: list[str] = []
+    schema = _read_yaml(FIX_VERIFICATION_SCHEMA)
+    if not isinstance(data, dict):
+        return ["fix_verification must be a YAML/JSON object"]
+    if not isinstance(schema, dict):
+        return [f"unable to load fix verification schema: {FIX_VERIFICATION_SCHEMA}"]
+
+    for item in schema.get("required_fields", []) or []:
+        if not isinstance(item, dict):
+            continue
+        field = str(item.get("field", "")).strip()
+        if not field:
+            continue
+        value = data.get(field)
+        if value is None:
+            issues.append(f"missing fix_verification field: {field}")
+            continue
+        if str(item.get("type", "")).strip() == "object" and not isinstance(value, dict):
+            issues.append(f"fix_verification.{field} must be an object")
+            continue
+        for sub in item.get("required_subfields", []) or []:
+            if not isinstance(value, dict) or value.get(sub) in (None, "", [], {}):
+                issues.append(f"fix_verification.{field}.{sub} must be present")
+
+    structural = data.get("structural_verification") if isinstance(data.get("structural_verification"), dict) else {}
+    semantic = data.get("semantic_verification") if isinstance(data.get("semantic_verification"), dict) else {}
+    overall = data.get("overall_result") if isinstance(data.get("overall_result"), dict) else {}
+
+    if structural.get("status") not in {"passed", "failed"}:
+        issues.append("fix_verification.structural_verification.status must be passed or failed")
+    if semantic.get("status") not in {"passed", "failed", "fallback_only"}:
+        issues.append("fix_verification.semantic_verification.status must be passed, failed, or fallback_only")
+    if overall.get("status") not in {"passed", "failed"}:
+        issues.append("fix_verification.overall_result.status must be passed or failed")
+
+    if overall.get("status") == "passed":
+        if structural.get("status") != "passed":
+            issues.append("overall_result.status=passed requires structural_verification.status=passed")
+        if semantic.get("status") != "passed":
+            issues.append("overall_result.status=passed requires semantic_verification.status=passed")
+
+    if not isinstance(structural.get("probe_results"), list) or not structural.get("probe_results"):
+        issues.append("fix_verification.structural_verification.probe_results must be a non-empty list")
+    if not isinstance(semantic.get("probe_summary"), list) or not semantic.get("probe_summary"):
+        issues.append("fix_verification.semantic_verification.probe_summary must be a non-empty list")
+    if not isinstance(structural.get("anomaly_cleared"), bool):
+        issues.append("fix_verification.structural_verification.anomaly_cleared must be boolean")
+    return issues
+
+
 def _load_sops(root: Path) -> dict[str, dict[str, Any]]:
     data = load_active_sops(root)
     if not isinstance(data, dict):
@@ -246,6 +314,24 @@ def _snapshot_issues(snapshot: dict[str, Any], events: dict[str, dict[str, Any]]
         else:
             for ref in refs:
                 _ensure_event_ref(str(ref).strip(), events, issues, "causal_anchor.evidence_refs: ")
+
+    reference_contract = snapshot.get("reference_contract")
+    if not isinstance(reference_contract, dict):
+        issues.append("session_evidence.reference_contract must be an object")
+    else:
+        for field in ("ref", "source_kind", "verification_mode"):
+            if not _nonempty_str(reference_contract.get(field)):
+                issues.append(f"reference_contract.{field} must be non-empty")
+        if not isinstance(reference_contract.get("fallback_only"), bool):
+            issues.append("reference_contract.fallback_only must be boolean")
+
+    fix_verification = snapshot.get("fix_verification")
+    if not isinstance(fix_verification, dict):
+        issues.append("session_evidence.fix_verification must be an object")
+    else:
+        for field in ("ref", "structural_status", "semantic_status", "overall_status"):
+            if not _nonempty_str(fix_verification.get(field)):
+                issues.append(f"fix_verification.{field} must be non-empty")
 
     for ref in snapshot.get("evidence_refs", []) or []:
         _ensure_event_ref(str(ref).strip(), events, issues, "session_evidence.evidence_refs: ")
@@ -365,6 +451,21 @@ def _counterfactual_issues(snapshot: dict[str, Any], events: dict[str, dict[str,
             issues.append(f"{prefix}submission proposer_agent mismatch")
         if str(rp.get("reviewer_agent", "")).strip() != reviewer:
             issues.append(f"{prefix}review reviewer_agent mismatch")
+        if not _nonempty_str(sp.get("reference_contract_ref")):
+            issues.append(f"{prefix}submission reference_contract_ref must be non-empty")
+        verification_mode = str(sp.get("verification_mode", "")).strip()
+        if not _nonempty_str(verification_mode):
+            issues.append(f"{prefix}submission verification_mode must be non-empty")
+        baseline_source = sp.get("baseline_source")
+        if not isinstance(baseline_source, dict):
+            issues.append(f"{prefix}submission baseline_source must be an object")
+        else:
+            for field in ("kind", "ref"):
+                if not _nonempty_str(baseline_source.get(field)):
+                    issues.append(f"{prefix}baseline_source.{field} must be non-empty")
+        probe_results = sp.get("probe_results")
+        if not isinstance(probe_results, list) or not probe_results:
+            issues.append(f"{prefix}submission probe_results must be a non-empty list")
         isolation = sp.get("isolation_checks")
         if not isinstance(isolation, dict):
             issues.append(f"{prefix}submission isolation_checks must be an object")
@@ -392,6 +493,13 @@ def _counterfactual_issues(snapshot: dict[str, Any], events: dict[str, dict[str,
         verdict = rp.get("isolation_verdict")
         if not isinstance(verdict, dict) or not _nonempty_str(verdict.get("verdict")) or not _nonempty_str(verdict.get("rationale")):
             issues.append(f"{prefix}review isolation_verdict must contain verdict and rationale")
+        semantic_verdict = str(rp.get("semantic_verdict", "")).strip()
+        if not _nonempty_str(semantic_verdict):
+            issues.append(f"{prefix}review semantic_verdict must be non-empty")
+        if verification_mode == "visual_comparison" and status == "approved":
+            issues.append(f"{prefix}visual_comparison cannot be approved for strict finalization")
+        if status == "approved" and semantic_verdict != "strict_pass":
+            issues.append(f"{prefix}approved review requires semantic_verdict=strict_pass")
         if status == "approved":
             approved += 1
 
@@ -639,7 +747,10 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
 
     checks: list[dict[str, Any]] = []
     case_yaml = run_root.parent.parent / "case.yaml"
+    case_input = run_root.parent.parent / "case_input.yaml"
+    references_manifest = run_root.parent.parent / "inputs" / "references" / "manifest.yaml"
     run_yaml = run_root / "run.yaml"
+    fix_verification = run_root / "artifacts" / "fix_verification.yaml"
     hypothesis_board = run_root / "notes" / "hypothesis_board.yaml"
     report_md = run_root / "reports" / "report.md"
     visual_report = run_root / "reports" / "visual_report.html"
@@ -653,7 +764,10 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
     session_id = _extract_session_id(run_data, session_marker)
 
     _check(checks, "case_yaml", case_yaml.is_file(), "case.yaml must exist", path=case_yaml)
+    _check(checks, "case_input", case_input.is_file(), "case_input.yaml must exist", path=case_input)
+    _check(checks, "references_manifest", references_manifest.is_file(), "inputs/references/manifest.yaml must exist", path=references_manifest)
     _check(checks, "run_yaml", run_yaml.is_file(), "run.yaml must exist", path=run_yaml)
+    _check(checks, "fix_verification", fix_verification.is_file(), "artifacts/fix_verification.yaml must exist", path=fix_verification)
     _check(checks, "hypothesis_board", hypothesis_board.is_file(), "notes/hypothesis_board.yaml must exist", path=hypothesis_board)
     _check(checks, "report_md", report_md.is_file(), "reports/report.md must exist", path=report_md)
     _check(checks, "visual_report_html", visual_report.is_file(), "reports/visual_report.html must exist", path=visual_report)
@@ -684,6 +798,9 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
     snapshot = _read_yaml(session_evidence) if session_evidence.is_file() else {}
     snapshot = snapshot if isinstance(snapshot, dict) else {}
     skeptic_data = _read_yaml(skeptic_signoff) if skeptic_signoff.is_file() else {}
+    case_input_data = _read_yaml(case_input) if case_input.is_file() else {}
+    references_manifest_data = _read_yaml(references_manifest) if references_manifest.is_file() else {}
+    fix_verification_data = _read_yaml(fix_verification) if fix_verification.is_file() else {}
     events = _load_action_chain(action_chain) if action_chain.is_file() else []
     indexed = _event_index(events)
     active_manifest = root / "common" / "knowledge" / "spec" / "registry" / "active_manifest.yaml"
@@ -720,8 +837,38 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
             schema_issues.append(f"{prefix}payload must be an object")
     _check(checks, "action_chain_schema", not schema_issues, "action_chain events must follow schema_version=2", path=action_chain if action_chain.is_file() else None, refs=schema_issues[:8] or None)
 
+    case_input_issues = validate_case_input(case_input_data) if case_input.is_file() else ["case_input missing"]
+    _check(checks, "case_input_schema", not case_input_issues, "case_input.yaml must satisfy intake schema", path=case_input if case_input.is_file() else None, refs=case_input_issues[:8] or None)
+
+    references_issues: list[str] = []
+    if not isinstance(references_manifest_data, dict):
+        references_issues.append("references manifest must be a YAML object")
+    elif not isinstance(references_manifest_data.get("references"), list):
+        references_issues.append("references manifest must contain references list")
+    _check(checks, "references_manifest_schema", not references_issues, "inputs/references/manifest.yaml must be well-formed", path=references_manifest if references_manifest.is_file() else None, refs=references_issues[:8] or None)
+
+    fix_verification_issues = _fix_verification_issues(fix_verification_data) if fix_verification.is_file() else ["fix_verification missing"]
+    _check(checks, "fix_verification_schema", not fix_verification_issues, "fix_verification.yaml must be structurally valid", path=fix_verification if fix_verification.is_file() else None, refs=fix_verification_issues[:8] or None)
+    overall_status = str((fix_verification_data or {}).get("overall_result", {}).get("status", "")).strip()
+    _check(checks, "fix_verification_pass", overall_status == "passed", "fix_verification overall_result.status must be passed for finalization", path=fix_verification if fix_verification.is_file() else None)
+
     snapshot_issues = _snapshot_issues(snapshot, indexed)
     _check(checks, "snapshot_refs", not snapshot_issues, "session_evidence must resolve all structured refs into action_chain", path=session_evidence if session_evidence.is_file() else None, refs=snapshot_issues[:8] or None)
+
+    snapshot_contract_issues: list[str] = []
+    if isinstance(snapshot.get("reference_contract"), dict) and case_input.is_file():
+        ref = str(snapshot["reference_contract"].get("ref", "")).strip()
+        if not _path_ref_matches(ref.split("#", 1)[0], case_input):
+            snapshot_contract_issues.append("session_evidence.reference_contract.ref must point to case_input.yaml")
+    if isinstance(snapshot.get("fix_verification"), dict) and fix_verification.is_file():
+        ref = str(snapshot["fix_verification"].get("ref", "")).strip()
+        if not _path_ref_matches(ref, fix_verification):
+            snapshot_contract_issues.append("session_evidence.fix_verification.ref must point to fix_verification.yaml")
+        if str(snapshot["fix_verification"].get("overall_status", "")).strip() != str((fix_verification_data or {}).get("overall_result", {}).get("status", "")).strip():
+            snapshot_contract_issues.append("session_evidence.fix_verification.overall_status must match fix_verification.yaml")
+    if isinstance(snapshot.get("reference_contract"), dict) and snapshot["reference_contract"].get("fallback_only") is True:
+        snapshot_contract_issues.append("fallback_only reference_contract cannot pass strict finalization")
+    _check(checks, "snapshot_workspace_contract", not snapshot_contract_issues, "session_evidence must point to workspace verification artifacts", path=session_evidence if session_evidence.is_file() else None, refs=snapshot_contract_issues[:8] or None)
 
     conflicted = [str(item.get("hypothesis_id", "")).strip() for item in (snapshot.get("hypotheses") or []) if isinstance(item, dict) and str(item.get("status", "")).strip() == "CONFLICTED"]
     unresolved = [str(item.get("conflict_id", "")).strip() for item in (snapshot.get("conflicts") or []) if isinstance(item, dict) and str(item.get("status", "")).strip() != "ARBITRATED"]
@@ -783,7 +930,10 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
         "metrics": _metrics(events, snapshot),
         "paths": {
             "case_yaml": _norm(case_yaml),
+            "case_input": _norm(case_input),
+            "references_manifest": _norm(references_manifest),
             "run_yaml": _norm(run_yaml),
+            "fix_verification": _norm(fix_verification),
             "hypothesis_board": _norm(hypothesis_board),
             "session_evidence": _norm(session_evidence),
             "skeptic_signoff": _norm(skeptic_signoff),

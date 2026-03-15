@@ -1,0 +1,49 @@
+schema_version: "1"
+
+description: "Debugger case_input.yaml intake schema"
+
+required_fields:
+  - field: schema_version
+    type: string
+    pattern: "^1$"
+  - field: case_id
+    type: string
+    min_length: 3
+  - field: session
+    type: object
+    required_subfields: [mode, goal]
+  - field: symptom
+    type: object
+    required_subfields: [summary]
+  - field: captures
+    type: list
+    min_items: 1
+  - field: environment
+    type: object
+  - field: reference_contract
+    type: object
+    required_subfields: [source_kind, source_refs, verification_mode, probe_set, acceptance]
+  - field: hints
+    type: object
+  - field: project
+    type: object
+
+session_mode:
+  allowed_values: [single, cross_device, regression]
+
+capture_role:
+  allowed_values: [anomalous, baseline, fixed]
+
+capture_source:
+  allowed_values: [user_supplied, historical_good, generated_counterfactual]
+
+reference_contract:
+  source_kind_allowed: [capture_baseline, external_image, design_spec, mixed]
+  verification_mode_allowed: [pixel_value_check, device_parity, regression_check, visual_comparison]
+  source_ref_prefix_allowed: [capture:, reference:]
+  acceptance_required:
+    - fallback_only
+  acceptance_optional_numeric:
+    - max_channel_delta
+    - max_distance_l2
+    - required_symptom_clearance

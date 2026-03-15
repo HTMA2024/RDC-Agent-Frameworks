@@ -94,6 +94,46 @@ def _is_nonempty_str(x) -> bool:
     return isinstance(x, str) and bool(x.strip())
 
 
+def _verification_errors(data: dict) -> list[str]:
+    errors: list[str] = []
+    verification = data.get("verification")
+    if verification is None:
+        return ["[缺失] verification 不存在或为空"]
+    if not isinstance(verification, dict):
+        return ["[类型] verification 必须为对象"]
+
+    ref = verification.get("reference_contract_ref")
+    if not _is_nonempty_str(ref):
+        errors.append("[缺失] verification.reference_contract_ref 不存在或为空")
+
+    for side in ("structural", "semantic"):
+        node = verification.get(side)
+        if not isinstance(node, dict):
+            errors.append(f"[类型] verification.{side} 必须为对象")
+            continue
+        if not _is_nonempty_str(node.get("status")):
+            errors.append(f"[缺失] verification.{side}.status 不存在或为空")
+        if not _is_nonempty_str(node.get("artifact_ref")):
+            errors.append(f"[缺失] verification.{side}.artifact_ref 不存在或为空")
+    structural = verification.get("structural") if isinstance(verification.get("structural"), dict) else {}
+    semantic = verification.get("semantic") if isinstance(verification.get("semantic"), dict) else {}
+    if structural and structural.get("status") not in {"passed", "failed"}:
+        errors.append("[验证] verification.structural.status 必须为 passed 或 failed")
+    if semantic and semantic.get("status") not in {"passed", "failed", "fallback_only"}:
+        errors.append("[验证] verification.semantic.status 必须为 passed / failed / fallback_only")
+
+    if "fix_verification_data" in data:
+        errors.append("[遗留] 不允许继续使用旧字段 fix_verification_data")
+
+    if data.get("fix_verified") is True and isinstance(verification, dict):
+        if structural.get("status") != "passed":
+            errors.append("[验证] fix_verified=true 时 verification.structural.status 必须为 passed")
+        if semantic.get("status") != "passed":
+            errors.append("[验证] fix_verified=true 时 verification.semantic.status 必须为 passed")
+
+    return errors
+
+
 def _check_required_fields_from_schema(schema: dict, data: dict) -> list[str]:
     errors: list[str] = []
     required = schema.get("required_fields", [])
@@ -234,6 +274,8 @@ def validate_bugcard(data: dict, strict: bool = False) -> list:
         stage = str(fp.get("shader_stage", "")).strip()
         if stage and stage not in ALLOWED_SHADER_STAGES:
             errors.append(f"[格式] fingerprint.shader_stage '{stage}' 非法，允许值：{sorted(ALLOWED_SHADER_STAGES)}")
+
+    errors.extend(_verification_errors(data))
 
     # 10. --strict：跨文件引用一致性检查
     if strict and not errors:

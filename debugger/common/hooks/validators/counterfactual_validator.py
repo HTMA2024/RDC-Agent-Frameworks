@@ -30,6 +30,7 @@ SESSION_EVIDENCE_SCHEMA = "2"
 REQUIRED_ISOLATION_FIELDS = ("only_target_changed", "same_scene_same_input", "same_drawcall_count")
 REQUIRED_MEASUREMENT_FIELDS = ("pixel_before", "pixel_after", "pixel_baseline")
 REQUIRED_SCORING_FIELDS = ("pixel_recovery", "variable_isolation", "symptom_coverage", "total")
+REQUIRED_BASELINE_SOURCE_FIELDS = ("kind", "ref")
 
 
 def _nonempty_str(value: Any) -> bool:
@@ -185,6 +186,21 @@ def validate_counterfactual(snapshot: dict[str, Any], events: dict[str, dict[str
             issues.append(f"{prefix}submission payload proposer_agent mismatch")
         if str(review_payload.get("reviewer_agent", "")).strip() != reviewer:
             issues.append(f"{prefix}review payload reviewer_agent mismatch")
+        if not _nonempty_str(submission_payload.get("reference_contract_ref")):
+            issues.append(f"{prefix}submission reference_contract_ref must be non-empty")
+        verification_mode = str(submission_payload.get("verification_mode", "")).strip()
+        if not _nonempty_str(verification_mode):
+            issues.append(f"{prefix}submission verification_mode must be non-empty")
+        baseline_source = submission_payload.get("baseline_source")
+        if not isinstance(baseline_source, dict):
+            issues.append(f"{prefix}submission baseline_source must be an object")
+        else:
+            for field in REQUIRED_BASELINE_SOURCE_FIELDS:
+                if not _nonempty_str(baseline_source.get(field)):
+                    issues.append(f"{prefix}submission baseline_source.{field} must be non-empty")
+        probe_results = submission_payload.get("probe_results")
+        if not isinstance(probe_results, list) or not probe_results:
+            issues.append(f"{prefix}submission probe_results must be a non-empty list")
 
         isolation = submission_payload.get("isolation_checks")
         if not isinstance(isolation, dict):
@@ -205,6 +221,13 @@ def validate_counterfactual(snapshot: dict[str, Any], events: dict[str, dict[str
                 issues.append(f"{prefix}review isolation_verdict.verdict must be non-empty")
             if not _nonempty_str(isolation_verdict.get("rationale")):
                 issues.append(f"{prefix}review isolation_verdict.rationale must be non-empty")
+        semantic_verdict = str(review_payload.get("semantic_verdict", "")).strip()
+        if not _nonempty_str(semantic_verdict):
+            issues.append(f"{prefix}review semantic_verdict must be non-empty")
+        if verification_mode == "visual_comparison" and status == "approved":
+            issues.append(f"{prefix}visual_comparison cannot receive approved strict review")
+        if status == "approved" and semantic_verdict != "strict_pass":
+            issues.append(f"{prefix}approved review requires semantic_verdict=strict_pass")
 
         evidence_refs = review.get("evidence_refs")
         if not isinstance(evidence_refs, list) or not evidence_refs:

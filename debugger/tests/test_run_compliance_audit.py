@@ -48,7 +48,7 @@ def _seed_base(root: Path) -> None:
         shutil.copy2(DEBUGGER_ROOT / rel, target)
 
 
-def _base_action_chain(session_id: str, run_id: str, *, reviewer: str = "skeptic_agent") -> list[dict]:
+def _base_action_chain(session_id: str, run_id: str, *, case_id: str = "case_001", reviewer: str = "skeptic_agent") -> list[dict]:
     return [
         {
             "schema_version": "2",
@@ -150,6 +150,18 @@ def _base_action_chain(session_id: str, run_id: str, *, reviewer: str = "skeptic
                 "proposer_agent": "shader_ir_agent",
                 "intervention": "half diffuse -> float diffuse",
                 "target_variable": "shader precision",
+                "reference_contract_ref": f"../workspace/cases/{case_id}/case_input.yaml#reference_contract",
+                "verification_mode": "device_parity",
+                "baseline_source": {"kind": "capture_baseline", "ref": "capture:baseline"},
+                "probe_results": [
+                    {
+                        "probe_id": "hair_hotspot",
+                        "probe_type": "pixel",
+                        "pixel_before": {"x": 512, "y": 384, "rgba": [0.21, 0.19, 0.18, 1.0]},
+                        "pixel_after": {"x": 512, "y": 384, "rgba": [0.37, 0.34, 0.32, 1.0]},
+                        "pixel_baseline": {"x": 512, "y": 384, "rgba": [0.38, 0.35, 0.33, 1.0]},
+                    }
+                ],
                 "isolation_checks": {
                     "only_target_changed": True,
                     "same_scene_same_input": True,
@@ -184,6 +196,7 @@ def _base_action_chain(session_id: str, run_id: str, *, reviewer: str = "skeptic
                 "review_id": "CF-001",
                 "hypothesis_id": "H-001",
                 "reviewer_agent": reviewer,
+                "semantic_verdict": "strict_pass",
                 "isolation_verdict": {"verdict": "isolated", "rationale": "all isolation checks passed"},
                 "evidence_refs": ["evt-0006-counterfactual-submit", "evt-0002-tool"],
             },
@@ -212,6 +225,7 @@ def _seed_common_session(
     session_id: str,
     run_id: str,
     *,
+    case_id: str = "case_001",
     reviewer: str = "skeptic_agent",
     conflict_status: str = "ARBITRATED",
     hypothesis_status: str = "VALIDATED",
@@ -221,7 +235,7 @@ def _seed_common_session(
     sessions_root.mkdir(parents=True, exist_ok=True)
     _write(sessions_root / ".current_session", f"{session_id}\n")
 
-    action_chain = _base_action_chain(session_id, run_id, reviewer=reviewer)
+    action_chain = _base_action_chain(session_id, run_id, case_id=case_id, reviewer=reviewer)
     _write(
         sessions_root / session_id / "action_chain.jsonl",
         "\n".join(json.dumps(event, ensure_ascii=False) for event in action_chain) + "\n",
@@ -244,6 +258,18 @@ def _seed_common_session(
             "established_by": "pixel_forensics_agent",
             "justification": "fixture anchor",
             "evidence_refs": ["evt-0002-tool"],
+        },
+        "reference_contract": {
+            "ref": f"../workspace/cases/{case_id}/case_input.yaml#reference_contract",
+            "source_kind": "capture_baseline",
+            "verification_mode": "device_parity",
+            "fallback_only": False,
+        },
+        "fix_verification": {
+            "ref": f"../workspace/cases/{case_id}/runs/{run_id}/artifacts/fix_verification.yaml",
+            "structural_status": "passed",
+            "semantic_status": "passed",
+            "overall_status": "passed",
         },
         "hypotheses": [
             {
@@ -318,6 +344,7 @@ def _seed_common_session(
                 {"blade": "刀3: 反事实刀", "result": "pass", "note": "ok"},
                 {"blade": "刀4: 工具证据刀", "result": "pass", "note": "ok"},
                 {"blade": "刀5: 替代假设刀", "result": "pass", "note": "ok"},
+                {"blade": "刀6: 语义基准刀", "result": "pass", "note": "ok"},
             ],
             "sign_off": {"signed": True, "declaration": "evidence chain is sufficient"},
         }
@@ -336,7 +363,44 @@ def _seed_run(
 ) -> Path:
     case_root = root / "workspace" / "cases" / case_id
     run_root = case_root / "runs" / run_id
-    _write(case_root / "case.yaml", f"case_id: {case_id}\ncurrent_run: {run_id}\n")
+    _write(case_root / "case.yaml", f"case_id: {case_id}\ncurrent_run: {run_id}\nreference_contract_ref: ../workspace/cases/{case_id}/case_input.yaml#reference_contract\n")
+    case_input = {
+        "schema_version": "1",
+        "case_id": case_id,
+        "session": {"mode": "cross_device", "goal": "validate fixture"},
+        "symptom": {"summary": "fixture summary"},
+        "captures": [
+            {
+                "capture_id": "cap-anomalous-001",
+                "role": "anomalous",
+                "file_name": "broken.rdc",
+                "source": "user_supplied",
+                "provenance": {"device": "fixture-a"},
+            },
+            {
+                "capture_id": "cap-baseline-001",
+                "role": "baseline",
+                "file_name": "good.rdc",
+                "source": "historical_good",
+                "provenance": {"build": "1487"},
+            },
+        ],
+        "environment": {"api": "Vulkan"},
+        "reference_contract": {
+            "source_kind": "capture_baseline",
+            "source_refs": ["capture:baseline"],
+            "verification_mode": "device_parity",
+            "probe_set": {"pixels": [{"name": "hair_hotspot", "x": 512, "y": 384}]},
+            "acceptance": {"max_channel_delta": 0.05, "fallback_only": False},
+        },
+        "hints": {},
+        "project": {"engine": "fixture"},
+    }
+    _write(case_root / "case_input.yaml", yaml.safe_dump(case_input, sort_keys=False, allow_unicode=True))
+    _write(
+        case_root / "inputs" / "references" / "manifest.yaml",
+        yaml.safe_dump({"references": [{"reference_id": "golden-001", "file_name": "golden.png", "source_kind": "external_image"}]}, sort_keys=False, allow_unicode=True),
+    )
     run_payload = {
         "case_id": case_id,
         "run_id": run_id,
@@ -348,6 +412,41 @@ def _seed_run(
     if knowledge_context is not None:
         run_payload["knowledge_context"] = knowledge_context
     _write(run_root / "run.yaml", yaml.safe_dump(run_payload, sort_keys=False, allow_unicode=True))
+    _write(
+        run_root / "artifacts" / "fix_verification.yaml",
+        yaml.safe_dump(
+            {
+                "schema_version": "1",
+                "structural_verification": {
+                    "status": "passed",
+                    "causal_anchor_ref": "event:523",
+                    "first_bad_event": "event:523",
+                    "probe_results": [
+                        {
+                            "probe_id": "hair_hotspot",
+                            "before": [0.21, 0.19, 0.18, 1.0],
+                            "after": [0.37, 0.34, 0.32, 1.0],
+                        }
+                    ],
+                    "anomaly_cleared": True,
+                },
+                "semantic_verification": {
+                    "status": "passed",
+                    "verification_mode": "device_parity",
+                    "baseline_source_kind": "capture_baseline",
+                    "baseline_source_ref": "capture:baseline",
+                    "probe_summary": [{"probe_id": "hair_hotspot", "max_delta": 0.03}],
+                    "max_delta": 0.03,
+                },
+                "overall_result": {
+                    "status": "passed",
+                    "derived_from": ["structural_verification", "semantic_verification"],
+                },
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+    )
     _write(run_root / "notes" / "hypothesis_board.yaml", "hypothesis_board:\n  hypotheses: []\n")
     _write(
         run_root / "reports" / "report.md",
@@ -487,6 +586,34 @@ class RunComplianceAuditTests(unittest.TestCase):
         proposals = list((root / "common" / "knowledge" / "proposals").glob("CAND-*.yaml"))
         self.assertEqual(proposals, [])
 
+    def test_missing_case_input_fails(self) -> None:
+        root = self._temp_root()
+        _seed_base(root)
+        _seed_common_session(root, "sess_fixture_001", "run_01")
+        run_root = _seed_run(root, "case_001", "run_01", "code-buddy", "concurrent_team")
+        (run_root.parent.parent / "case_input.yaml").unlink()
+
+        proc = _run_audit(root, "code-buddy", run_root)
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        artifact = yaml.safe_load((run_root / "artifacts" / "run_compliance.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(artifact["status"], "failed")
+
+    def test_fallback_only_fix_verification_fails(self) -> None:
+        root = self._temp_root()
+        _seed_base(root)
+        _seed_common_session(root, "sess_fixture_001", "run_01")
+        run_root = _seed_run(root, "case_001", "run_01", "code-buddy", "concurrent_team")
+        fix_path = run_root / "artifacts" / "fix_verification.yaml"
+        payload = yaml.safe_load(fix_path.read_text(encoding="utf-8"))
+        payload["semantic_verification"]["status"] = "fallback_only"
+        payload["overall_result"]["status"] = "failed"
+        fix_path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+        proc = _run_audit(root, "code-buddy", run_root)
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        artifact = yaml.safe_load((run_root / "artifacts" / "run_compliance.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(artifact["status"], "failed")
+
     def test_repeated_candidate_updates_existing_proposal(self) -> None:
         root = self._temp_root()
         _seed_base(root)
@@ -504,7 +631,7 @@ class RunComplianceAuditTests(unittest.TestCase):
         proc_1 = _run_audit(root, "code-buddy", run_root_1)
         self.assertEqual(proc_1.returncode, 0, proc_1.stdout + proc_1.stderr)
 
-        _seed_common_session(root, "sess_fixture_002", "run_02")
+        _seed_common_session(root, "sess_fixture_002", "run_02", case_id="case_002")
         run_root_2 = _seed_run(root, "case_002", "run_02", "code-buddy", "concurrent_team", knowledge_context=knowledge_context)
         run_yaml_2 = yaml.safe_load((run_root_2 / "run.yaml").read_text(encoding="utf-8"))
         run_yaml_2["session_id"] = "sess_fixture_002"

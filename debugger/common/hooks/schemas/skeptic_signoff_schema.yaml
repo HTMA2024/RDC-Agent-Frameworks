@@ -22,7 +22,7 @@ skeptic_signoff_schema:
     - from                  # 必须为 "skeptic_agent"
     - to                    # "team_lead" 或 "curator_agent"
     - target_hypothesis     # 被审查的假设 ID（如 H-001）或 "bugcard"
-    - blade_review          # 五把刀审查结果列表
+    - blade_review          # 六把刀审查结果列表
     - sign_off              # 签署对象，含 signed (bool) 和 declaration
 
   blade_review_item_schema:
@@ -37,7 +37,7 @@ skeptic_signoff_schema:
     conditional_fields:
       - field: declaration
         condition: "signed == true"
-        description: "签署声明（五把刀全部通过的确认）"
+        description: "签署声明（六把刀全部通过的确认）"
       - field: reason
         condition: "signed == false"
         description: "拒绝签署的原因"
@@ -63,6 +63,6 @@ skeptic_challenge_schema:
 
 # 验证规则
 validation_rules:
-  - rule: "sign_off.signed == true 时，blade_review 中所有 result 必须为 pass"
-  - rule: "sign_off.signed == false 时，必须存在至少一条 result == fail 的 blade_review 项"
-  - rule: "SKEPTIC_CHALLENGE 中所有 challenge 的 status 必须初始为 open"
+- rule: "sign_off.signed == true 时，blade_review 中所有 result 必须为 pass"
+- rule: "sign_off.signed == false 时，必须存在至少一条 result == fail 的 blade_review 项"
+- rule: "SKEPTIC_CHALLENGE 中所有 challenge 的 status 必须初始为 open"

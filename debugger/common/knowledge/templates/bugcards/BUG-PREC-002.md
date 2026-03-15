@@ -1,4 +1,4 @@
-﻿# BugCard: BUG-PREC-002
+# BugCard：BUG-PREC-002
 
 ```yaml
 bugcard_id: BUG-PREC-002
@@ -11,11 +11,13 @@ recommended_sop: SOP-PREC-01
 causal_anchor_type: first_bad_event
 causal_anchor_ref: "event:523"
 causal_chain_summary: >
-  目标像素在 Event#523 首次从正常值跌落为接近 0；同一 drawcall 的 `half KajiyaDiffuse` 表达式经 RelaxedPrecision lowering 后产生异常负值，因此黑化是在该 drawcall 首次引入，而不是在后续后处理阶段首次显现。
+  目标像素在 Event#523 首次变坏；同一 drawcall 的 `half KajiyaDiffuse = 1 - abs(dot(N, L));`
+  在 Adreno 740 上经 RelaxedPrecision lowering 后产生异常负值，因此黑化是在该 drawcall 引入，而不是在后续 pass 首次可见。
 
-root_cause_summary: >  在 `MobileShadingModels.ush:MobileKajiyaKayDiffuseAttenuation` 中，
-  `half KajiyaDiffuse = 1 - abs(dot(N, L));` 在 Adreno 740（Vulkan）上经 RelaxedPrecision lowering 后出现负值/异常，
-  后续非负钳位链将结果压为 0，导致头发/披风区域整体塌黑。
+root_cause_summary: >
+  在 `MobileShadingModels.ush:MobileKajiyaKayDiffuseAttenuation` 中，
+  `half KajiyaDiffuse = 1 - abs(dot(N, L));` 于 Event#523 对应的 PS drawcall 上经 Adreno 740 Vulkan 编译链 lowering 后出现异常负值，
+  导致头发/披风区域被错误压黑。
 
 fingerprint:
   pattern: "half KajiyaDiffuse = 1 - abs(dot(N, L));"
@@ -23,9 +25,14 @@ fingerprint:
   shader_stage: PS
 
 fix_verified: true
-fix_verification_data:
-  pixel_before: {x: 512, y: 384, rgba: [0.02, 0.02, 0.02, 1.0]}
-  pixel_after:  {x: 512, y: 384, rgba: [0.34, 0.32, 0.30, 1.0]}
+verification:
+  reference_contract_ref: "../workspace/cases/case-adreno740-black/case_input.yaml#reference_contract"
+  structural:
+    status: passed
+    artifact_ref: "../workspace/cases/case-adreno740-black/runs/run-001/artifacts/fix_verification.yaml#structural_verification"
+  semantic:
+    status: passed
+    artifact_ref: "../workspace/cases/case-adreno740-black/runs/run-001/artifacts/fix_verification.yaml#semantic_verification"
 
 skeptic_signed: true
 bugcard_skeptic_signed: true
@@ -35,7 +42,6 @@ related_devices:
     bug_card: BUG-PREC-001
     symptom_diff: "650 上白化，740 上黑化（同类 RelaxedPrecision 精度问题）"
 
-action_chain_ref: "knowledge/traces/action_chains/example_adreno_prec.jsonl"
+action_chain_ref: "common/knowledge/library/sessions/session-03rdc-debug-001/action_chain.jsonl"
 sop_improvement_notes: ""
 ```
-

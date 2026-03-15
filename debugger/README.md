@@ -36,11 +36,13 @@
 运行时共享文档入口：
 
 - `common/AGENT_CORE.md`
+- `common/docs/intake/README.md`
 - `common/docs/cli-mode-reference.md`
 - `common/docs/model-routing.md`
 - `common/docs/platform-capability-matrix.md`
 - `common/docs/platform-capability-model.md`
 - `common/docs/runtime-coordination-model.md`
+- `common/docs/truth_store_contract.md`
 - `common/docs/workspace-layout.md`
 
 维护者文档入口：

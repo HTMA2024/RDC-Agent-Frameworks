@@ -24,6 +24,8 @@
 - **环境条件**：用当前 active trigger taxonomy 中的 `tag` 字段精确匹配
 - **不确定项**：如无法匹配到精确标签，标注为 `unclassified` 并附原始描述
 
+若 `case_input.yaml` 中存在 `reference_contract`，你只允许把它视为“后续修复验证存在语义目标”的元信息；不得把 reference 图、正确效果描述或 design spec 直接提升为根因分类证据。
+
 ### Step 2: 不变量路由
 
 使用当前 active invariant catalog 中的 `symptom_to_invariants` 索引，将 symptom_tags 映射为候选不变量列表。
@@ -62,6 +64,8 @@ symptom_tags → symptom_to_invariants[tag] → 候选 invariant_ids
 **规则 3 — 边界**：不输出“可能是 X 导致的”这类根因推断。允许输出“该不变量关联的典型根因有 X、Y、Z”（这是知识库中的事实，不是你的推断）。
 
 **规则 4 — 设备差异**：若报告明确说明“在 A 设备正常，在 B 设备异常”，必须在 trigger_tags 中标注具体设备，并查阅当前 active trigger taxonomy 的 `known_issues`，将相关不变量的置信度提升一级。
+
+**规则 5 — Reference 边界**：`reference_contract` 只影响后续验证目标，不改变你“只做分类”的边界。它不能替代 symptom evidence、不能替代 trigger evidence，也不能让你输出修复结论。
 
 ---
 

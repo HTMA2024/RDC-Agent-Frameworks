@@ -15,7 +15,8 @@
         "code-buddy": "01_team_lead.md",
         "copilot-cli": "01_team_lead.agent.md",
         "copilot-ide": "orchestrator.md",
-        "codex": "team_lead"
+        "codex": "team_lead",
+        "cursor": "01_team_lead.md"
       }
     },
     {
@@ -32,7 +33,8 @@
         "code-buddy": "02_triage_taxonomy.md",
         "copilot-cli": "02_triage_taxonomy.agent.md",
         "copilot-ide": "triage.md",
-        "codex": "triage_agent"
+        "codex": "triage_agent",
+        "cursor": "02_triage_taxonomy.md"
       }
     },
     {
@@ -49,7 +51,8 @@
         "code-buddy": "03_capture_repro.md",
         "copilot-cli": "03_capture_repro.agent.md",
         "copilot-ide": "capture.md",
-        "codex": "capture_repro_agent"
+        "codex": "capture_repro_agent",
+        "cursor": "03_capture_repro.md"
       }
     },
     {
@@ -66,7 +69,8 @@
         "code-buddy": "04_pass_graph_pipeline.md",
         "copilot-cli": "04_pass_graph_pipeline.agent.md",
         "copilot-ide": "pipeline.md",
-        "codex": "pass_graph_pipeline_agent"
+        "codex": "pass_graph_pipeline_agent",
+        "cursor": "04_pass_graph_pipeline.md"
       }
     },
     {
@@ -83,7 +87,8 @@
         "code-buddy": "05_pixel_value_forensics.md",
         "copilot-cli": "05_pixel_value_forensics.agent.md",
         "copilot-ide": "forensics.md",
-        "codex": "pixel_forensics_agent"
+        "codex": "pixel_forensics_agent",
+        "cursor": "05_pixel_value_forensics.md"
       }
     },
     {
@@ -100,7 +105,8 @@
         "code-buddy": "06_shader_ir.md",
         "copilot-cli": "06_shader_ir.agent.md",
         "copilot-ide": "shader.md",
-        "codex": "shader_ir_agent"
+        "codex": "shader_ir_agent",
+        "cursor": "06_shader_ir.md"
       }
     },
     {
@@ -117,7 +123,8 @@
         "code-buddy": "07_driver_device.md",
         "copilot-cli": "07_driver_device.agent.md",
         "copilot-ide": "driver.md",
-        "codex": "driver_device_agent"
+        "codex": "driver_device_agent",
+        "cursor": "07_driver_device.md"
       }
     },
     {
@@ -134,7 +141,8 @@
         "code-buddy": "08_skeptic.md",
         "copilot-cli": "08_skeptic.agent.md",
         "copilot-ide": "verifier.md",
-        "codex": "skeptic_agent"
+        "codex": "skeptic_agent",
+        "cursor": "08_skeptic.md"
       }
     },
     {
@@ -151,7 +159,8 @@
         "code-buddy": "09_report_knowledge_curator.md",
         "copilot-cli": "09_report_knowledge_curator.agent.md",
         "copilot-ide": "report-curator.md",
-        "codex": "curator_agent"
+        "codex": "curator_agent",
+        "cursor": "09_report_knowledge_curator.md"
       }
     }
   ]

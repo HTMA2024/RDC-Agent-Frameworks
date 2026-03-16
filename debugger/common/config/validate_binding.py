@@ -26,6 +26,21 @@ VFS_TOOLS = {
     "rd.vfs.tree",
     "rd.vfs.resolve",
 }
+SESSION_TOOLS = {
+    "rd.session.get_context",
+    "rd.session.update_context",
+    "rd.session.list_sessions",
+    "rd.session.select_session",
+    "rd.session.resume",
+}
+CORE_DISCOVERY_TOOLS = {
+    "rd.core.get_operation_history",
+    "rd.core.get_runtime_metrics",
+    "rd.core.list_tools",
+    "rd.core.search_tools",
+    "rd.core.get_tool_graph",
+}
+REQUIRED_FRAMEWORK_TOOLS = VFS_TOOLS | SESSION_TOOLS | CORE_DISCOVERY_TOOLS
 
 
 def _default_root() -> Path:
@@ -121,8 +136,18 @@ def validate_binding(root: Path, *, platform: str = "") -> list[str]:
             spec_names = {str(item.get("name") or "").strip() for item in spec.get("tools", [])}
             if snapshot_names != spec_names:
                 findings.append("tool snapshot names differ from tools_root catalog")
-            if VFS_TOOLS - snapshot_names:
-                findings.append("tool snapshot missing rd.vfs.* entries")
+            missing_snapshot_tools = REQUIRED_FRAMEWORK_TOOLS - snapshot_names
+            if missing_snapshot_tools:
+                findings.append(
+                    "framework-required tool missing from snapshot: "
+                    + ", ".join(sorted(missing_snapshot_tools))
+                )
+            missing_spec_tools = REQUIRED_FRAMEWORK_TOOLS - spec_names
+            if missing_spec_tools:
+                findings.append(
+                    "framework-required tool missing from tools_root catalog: "
+                    + ", ".join(sorted(missing_spec_tools))
+                )
 
     if _is_source_root(root):
         try:

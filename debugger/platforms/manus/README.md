@@ -4,10 +4,10 @@
 
 入口规则：
 
-- 当前宿主默认不能直接进入本地环境，协议桥接路径默认采用 `MCP`。
-- 任务开始时，Agent 必须向用户说明当前采用的是 `MCP`。
-- 若宿主未配置对应 MCP server，必须直接阻断并提示配置，不允许继续假设工具已接通。
-- daemon 仍然是长生命周期 runtime / context 持有层，但它不改变当前宿主通过 `MCP` 桥接接入这一事实。
+- 当前宿主按 workflow package 运行，不提供 native `MCP` 入口。
+- 任务开始时，Agent 必须向用户说明当前采用的是 `workflow_stage` 串行流程，而不是 live team handoff。
+- 当前平台只允许消费已经准备好的共享文档、workspace 与 artifact contract；不得假设宿主内存在可直接调用的 `MCP` server。
+- 当前宿主不支持 custom agents、native skills、native hooks 与 per-agent model control。
 
 使用方式：
 
@@ -25,10 +25,10 @@
 - `common/` 默认只保留一个占位文件；正式共享正文仍由顶层 `debugger/common/` 提供，并由用户显式拷入。
 - 未完成 `debugger/common/` 覆盖前，当前平台模板不可用。
 - 未完成 `platform_adapter.json` 配置或 `tools_root` 校验前，Agent 必须拒绝执行依赖平台真相的工作。
-- 当前工具 snapshot 必须与 `RDC-Agent-Tools` 的 `202` 个 tools 对齐，并包含新增的只读 `rd.vfs.*` 探索面与统一 tabular projection 能力。
+- 当前工具 snapshot 必须与 `RDC-Agent-Tools` 当前 catalog 完整对齐，并覆盖 `rd.vfs.*`、扩展 `rd.session.*`、`rd.core.*` discovery/observability，以及 bounded event-tree 读取语义。
 - 未提供 `.rdc` 时，Agent 必须以 `BLOCKED_MISSING_CAPTURE` 直接阻断，不得初始化 case/run 或继续 triage、investigation、planning。
 - `workspace/` 预生成空骨架；真实运行产物在平台使用阶段按 case/run 写入。
 - 维护者若重跑 scaffold，必须继续产出 platform-local `common/` 最小占位目录，不得回退到跨级引用。
-- 若对应 MCP server 未配置，Agent 必须像 `tools_root` 未配置一样阻断平台真相相关工作。
 - 当前宿主按 `workflow_stage` 降级运行；最终仍必须生成 `artifacts/run_compliance.yaml` 才算合规结案。
 - 不得在该宿主上模拟实时 multi-agent handoff。
+- 若任务需要 experimental remote rehydrate、多 live owners 或 per-agent model routing，必须切回更高能力平台。

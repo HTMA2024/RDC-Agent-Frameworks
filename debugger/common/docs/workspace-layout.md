@@ -71,6 +71,8 @@ workspace/
 - `inputs/references/` 只存 golden image、设计稿、验收说明等非 replay reference
 - `fix_verification.yaml` 是 run 级修复验证唯一权威 artifact
 - 第一层 gate artifacts 不复制到 `workspace/`；`run.yaml` 只记录引用
+- 并行 case 只能共享仓库，不得共享同一条 live `context`；每个并行 live case 都必须有独立 `context/daemon` 与独立 `runs/<run_id>/` 现场。
+- 同一 case 下如需并行 live 调查，也必须拆成独立 runtime owner 与独立 context，再把证据回写到同一 case 的不同 run 或同一 run 的结构化产物中。
 
 ## 4. 写权限边界
 

@@ -336,7 +336,9 @@
         "platforms/cursor/AGENTS.md",
         "platforms/cursor/.cursorrules",
         "platforms/cursor/.cursor/mcp.json",
-        "platforms/cursor/agents/01_team_lead.md"
+        "platforms/cursor/agents/01_team_lead.md",
+        "platforms/cursor/skills/renderdoc-rdc-gpu-debug/SKILL.md",
+        "platforms/cursor/hooks/hooks.json"
       ]
     }
   }

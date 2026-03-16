@@ -1,7 +1,7 @@
 ---
-agent_id: "skeptic"
-category: "reviewer"
-model: "opus"
+agent_id: "skeptic_agent"
+category: "verifier"
+model: "gpt-5.4"
 delegates_to:
  - team_lead
 ---

@@ -105,11 +105,72 @@ def _expected_rendered_model(root: Path, platform_key: str, agent_id: str) -> tu
         path = root / "platforms" / platform_key / "agents" / platform_file
     elif platform_key == "copilot-ide":
         path = root / "platforms" / platform_key / ".github" / "agents" / platform_file
+    elif platform_key == "cursor":
+        path = root / "platforms" / platform_key / "agents" / platform_file
     elif platform_key == "codex":
         path = root / "platforms" / platform_key / ".codex" / "agents" / f"{platform_file}.toml"
     else:
         return None
     return path, expected_model
+
+
+def _role_manifest_findings(root: Path) -> list[str]:
+    findings: list[str] = []
+    manifest = _read_json(root / "common" / "config" / "role_manifest.json")
+    caps = _read_json(root / "common" / "config" / "platform_capabilities.json")
+    platform_rows = caps.get("platforms") or {}
+
+    required_platforms = {
+        platform_key
+        for platform_key, platform_caps in platform_rows.items()
+        if bool(((platform_caps.get("capabilities") or {}).get("custom_agents") or {}).get("supported"))
+    }
+
+    for role in manifest.get("roles") or []:
+        platform_files = set((role.get("platform_files") or {}).keys())
+        if platform_files != required_platforms:
+            findings.append(
+                f"{role.get('agent_id')}: platform_files keys differ from custom_agents-supported platforms"
+            )
+
+    return findings
+
+
+def _doc_contract_findings(root: Path) -> list[str]:
+    findings: list[str] = []
+    matrix = (root / "common" / "docs" / "platform-capability-matrix.md").read_text(encoding="utf-8-sig")
+    model_doc = (root / "common" / "docs" / "platform-capability-model.md").read_text(encoding="utf-8-sig")
+    runtime_doc = (root / "common" / "docs" / "runtime-coordination-model.md").read_text(encoding="utf-8-sig")
+    workspace_doc = (root / "common" / "docs" / "workspace-layout.md").read_text(encoding="utf-8-sig")
+
+    required_matrix_rows = [
+        "| Code Buddy |",
+        "| Claude Code |",
+        "| Copilot CLI |",
+        "| Copilot IDE |",
+        "| Claude Desktop |",
+        "| Manus |",
+        "| Codex |",
+        "| Cursor |",
+    ]
+    for row in required_matrix_rows:
+        if row not in matrix:
+            findings.append(f"platform-capability-matrix.md missing platform row: {row}")
+
+    if "文档镜像，不是独立 SSOT" not in matrix:
+        findings.append("platform-capability-matrix.md must state it is not an independent SSOT")
+    if "唯一权威源" not in model_doc:
+        findings.append("platform-capability-model.md must state JSON SSOT ownership")
+    if "experimental" not in model_doc:
+        findings.append("platform-capability-model.md must describe experimental remote handling")
+    if "并行 case 也必须拆成独立 `context/daemon`" not in runtime_doc:
+        findings.append("runtime-coordination-model.md must define parallel case isolation")
+    if "只定义为 `experimental` 协作合同" not in runtime_doc:
+        findings.append("runtime-coordination-model.md must mark remote rehydrate as experimental")
+    if "并行 case 只能共享仓库，不得共享同一条 live `context`" not in workspace_doc:
+        findings.append("workspace-layout.md must define case/context isolation")
+
+    return findings
 
 
 def _model_routing_findings(root: Path) -> list[str]:
@@ -172,7 +233,7 @@ def _model_routing_findings(root: Path) -> list[str]:
             elif not routed_model or routed_model == "inherit":
                 findings.append(f"{profile_name}: platform {platform_key} must have an explicit rendered model")
 
-    rendered_platforms = ["code-buddy", "claude-code", "copilot-cli", "copilot-ide", "codex"]
+    rendered_platforms = ["code-buddy", "claude-code", "copilot-cli", "copilot-ide", "cursor", "codex"]
     for platform_key in rendered_platforms:
         platform_caps = cap_platforms.get(platform_key) or {}
         if not _platform_renders_per_agent_model(platform_caps):
@@ -224,6 +285,15 @@ def _compliance_findings(root: Path) -> list[str]:
         actual_mode = str(platform_caps.get("coordination_mode", "")).strip()
         if expected_mode != actual_mode:
             findings.append(f"{key}: coordination_mode mismatch ({expected_mode} != {actual_mode})")
+
+        enforcement_mode = str(rules.get("enforcement_mode", "")).strip()
+        hooks_supported = _surface_supported(platform_caps, "hooks")
+        if enforcement_mode == "native_hook_gate" and not hooks_supported:
+            findings.append(f"{key}: native_hook_gate requires hooks support")
+        if enforcement_mode == "audit_only_gate" and hooks_supported:
+            findings.append(f"{key}: audit_only_gate should not claim native hooks support")
+        if enforcement_mode == "workflow_audit_gate" and actual_mode != "workflow_stage":
+            findings.append(f"{key}: workflow_audit_gate requires workflow_stage coordination_mode")
 
         for surface in rules.get("required_surfaces") or []:
             if not _surface_supported(platform_caps, str(surface)):
@@ -349,6 +419,8 @@ def main() -> int:
     findings.extend(_spec_store_findings(root))
     findings.extend(_intake_contract_findings(root))
     findings.extend(_model_routing_findings(root))
+    findings.extend(_role_manifest_findings(root))
+    findings.extend(_doc_contract_findings(root))
 
     if findings:
         print("[debugger repo findings]")

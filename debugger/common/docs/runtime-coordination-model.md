@@ -45,13 +45,16 @@ framework 必须把以下三层分开理解：
 硬规则：
 
 - 同一 `context` 下只允许维护一条当前 live 调试链路。
-- 同一 `context` 不允许并行保有多套当前 `session_id` / `capture_file_id` / `active_event_id`。
+- 同一 `context` 可以保留多条本地 session 记录，但任一时刻只能有一个 `current_session_id` / 当前 live owner。
+- 同一 `context` 不允许并行保有多套当前 `session_id` / `capture_file_id` / `active_event_id` 作为“同时活跃”的 live 链路。
 - 若需要 local 并行调查，必须为每条 live 链路分配独立 `context/daemon`。
 
 因此：
 
 - 高能力本地宿主可以并行分工。
 - 但并行分工不等于多个 agent 共享同一条 live session 并发操作。
+- 并行 case 也必须拆成独立 `context/daemon`；不得把两个 case 的 live 链路塞进同一 `context`。
+- 多 session 是持久化与恢复能力，不是允许多个 specialist 共享同一 live runtime。
 
 ## 4. 统一协作拓扑
 
@@ -87,7 +90,13 @@ framework 只使用以下三种 `coordination_mode`：
 - 不模拟实时 team handoff。
 - 若任务需要动态 discovery 或多 live owners，必须切回更高能力平台。
 
-## 5. Remote 统一规则
+## 5. Experimental Remote 统一规则
+
+以下 remote / live bridge / rehydrate 规则当前只定义为 `experimental` 协作合同：
+
+- 它们用于约束未来实验路径的 correctness。
+- 它们不自动意味着任一平台已经正式支持 remote live workflow。
+- 只有平台 README 明确声明已验证时，remote 才能进入该平台的当前能力表述。
 
 remote 一律采用：
 
@@ -100,6 +109,30 @@ remote 一律采用：
 - framework 不设计 remote 多 live session 并发协作流程。
 
 这是一条 correctness 约束，不是把 `MCP` 误写成 remote 的唯一概念入口。
+
+## 5.5 Local Context 恢复与发现面
+
+对 daemon-backed local-first 路径，framework 统一按以下方式理解 `tools` 的恢复与 discovery 语义：
+
+- `rd.session.get_context`
+  - 用于读取当前 context 视图。
+  - 返回当前选中的 runtime / remote / focus，以及 `current_session_id`、`sessions`、`recovery`、`limits`、`recent_operations`。
+- `rd.session.list_sessions`
+  - 用于判定当前 context 持有的 session 表，而不是猜“这个 context 是否只会有一个 session”。
+- `rd.session.resume`
+  - 用于 daemon 重启后的本地 `.rdc` session 恢复。
+  - remote session 不会因此自动重连。
+- `rd.session.select_session`
+  - 用于在同一 context 内显式切换当前工作面。
+  - 不能把它理解为“允许多个 owner 同时共享 live runtime”。
+- `rd.core.list_tools` / `rd.core.search_tools` / `rd.core.get_tool_graph`
+  - 用于按任务范围做工具 discovery 与 prerequisite 推断。
+  - framework 不应要求 Agent 从完整 catalog 文本里手猜调用链。
+- `rd.core.get_operation_history` / `rd.core.get_runtime_metrics`
+  - 用于读取最近操作、恢复结果与 runtime 观测面，而不是仅靠日志猜测恢复状态。
+- `rd.event.get_actions` / `rd.event.get_action_tree`
+  - 默认按 bounded / paginated contract 理解。
+  - framework 不得再把它们描述成“总会一次性返回完整事件树”。
 
 ## 6. `runtime_baton` 合同
 
@@ -149,15 +182,19 @@ baton 的恢复真相源顺序固定为：
 
 1. `causal_anchor` 与 `evidence_refs`
 2. `action_chain.jsonl`、`session_evidence.yaml` 等 session artifacts
-3. `rd.session.get_context` 快照
+3. `rd.session.get_context` / `rd.session.list_sessions` 提供的当前 context 视图
 
 补充规则：
 
-- `rd.session.get_context` 只作为恢复辅助，不是根因证据源。
+- `rd.session.get_context` / `rd.session.list_sessions` 只作为恢复辅助，不是根因证据源。
+- daemon 重启后的本地恢复优先使用 `rd.session.resume`，而不是要求 Agent 靠旧 `session_id` 盲猜 live 状态。
+- 同一 context 若持有多条 session 记录，恢复后应先显式确认或切换 `current_session_id`，再继续 investigation。
 - `rd.session.update_context` 只允许恢复 `focus.pixel`、`focus.resource_id`、`focus.shader_id`、`notes` 等 user-owned 字段。
 - 禁止使用 `rd.session.update_context` 伪造 `session_id`、`capture_file_id`、`active_event_id` 或 `remote_id`。
+- `rdx daemon stop` 只停止 daemon，不等于销毁当前 context 的本地恢复索引。
+- 真正销毁当前 context 的持久化恢复状态，应使用 `rdx context clear` 或等价 shutdown 路径。
 
-## 8. Remote Rehydrate 顺序
+## 8. Experimental Remote Rehydrate 顺序
 
 remote baton 的完整恢复顺序固定如下：
 

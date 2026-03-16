@@ -1,7 +1,7 @@
 ---
 agent_id: "team_lead"
 category: "orchestrator"
-model: "opus"
+model: "opus-4.6"
 delegates_to:
  - triage_agent
  - capture_repro_agent

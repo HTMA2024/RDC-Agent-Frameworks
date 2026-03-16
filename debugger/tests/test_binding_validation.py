@@ -30,6 +30,7 @@ class BindingValidationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp) / "debugger"
             tools_root = Path(tmp) / "tools"
+            tool_names = sorted(validator.REQUIRED_FRAMEWORK_TOOLS)
 
             for rel in (
                 "README.md",
@@ -91,8 +92,8 @@ class BindingValidationTests(unittest.TestCase):
                 root / "common" / "config" / "tool_catalog.snapshot.json",
                 json.dumps(
                     {
-                        "tool_count": 202,
-                        "tools": [{"name": name} for name in sorted(validator.VFS_TOOLS | {"rd.session.get_context"})],
+                        "tool_count": len(tool_names),
+                        "tools": [{"name": name} for name in tool_names],
                     },
                     ensure_ascii=False,
                     indent=2,
@@ -105,8 +106,8 @@ class BindingValidationTests(unittest.TestCase):
                 tools_root / "spec" / "tool_catalog.json",
                 json.dumps(
                     {
-                        "tool_count": 202,
-                        "tools": [{"name": name} for name in sorted(validator.VFS_TOOLS | {"rd.session.get_context"})],
+                        "tool_count": len(tool_names),
+                        "tools": [{"name": name} for name in tool_names],
                     },
                     ensure_ascii=False,
                     indent=2,

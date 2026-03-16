@@ -108,6 +108,7 @@
       "native_surfaces": [
         "agents",
         "skills",
+        "hooks",
         "mcp",
         "per_agent_model",
         "handoffs"

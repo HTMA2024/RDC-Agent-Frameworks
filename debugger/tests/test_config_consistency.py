@@ -30,6 +30,7 @@ class ConfigConsistencyTests(unittest.TestCase):
         compliance = _read_json(DEBUGGER_ROOT / "common" / "config" / "framework_compliance.json")
         capabilities = _read_json(DEBUGGER_ROOT / "common" / "config" / "platform_capabilities.json")
         routing = _read_json(DEBUGGER_ROOT / "common" / "config" / "model_routing.json")
+        manifest = _read_json(DEBUGGER_ROOT / "common" / "config" / "role_manifest.json")
 
         capability_platforms = set((capabilities.get("platforms") or {}).keys())
         compliance_platforms = set((compliance.get("platforms") or {}).keys())
@@ -46,6 +47,16 @@ class ConfigConsistencyTests(unittest.TestCase):
         for profile in (routing.get("profiles") or {}).values():
             rendered = set((profile.get("platform_rendering") or {}).keys())
             self.assertEqual(capability_platforms, rendered)
+
+        expected_role_platforms = {
+            key
+            for key, row in (capabilities.get("platforms") or {}).items()
+            if ((row.get("capabilities") or {}).get("custom_agents") or {}).get("supported")
+        }
+        self.assertIn("cursor", expected_role_platforms)
+
+        for role in (manifest.get("roles") or []):
+            self.assertEqual(set((role.get("platform_files") or {}).keys()), expected_role_platforms)
 
     def test_validate_tool_contract_reader_reports_invalid_adapter_json(self) -> None:
         module = _load_module(DEBUGGER_ROOT / "scripts" / "validate_tool_contract.py", "validate_tool_contract_module")
@@ -73,6 +84,14 @@ class ConfigConsistencyTests(unittest.TestCase):
 
             self.assertIn("invalid JSON in", str(exc.exception))
             self.assertIn("forward slashes or escaped backslashes", str(exc.exception))
+
+    def test_repo_validator_expected_rendered_model_supports_cursor(self) -> None:
+        module = _load_module(DEBUGGER_ROOT / "scripts" / "validate_debugger_repo.py", "validate_debugger_repo_module")
+        expected = module._expected_rendered_model(DEBUGGER_ROOT, "cursor", "team_lead")
+        self.assertIsNotNone(expected)
+        path, model = expected
+        self.assertEqual(path, DEBUGGER_ROOT / "platforms" / "cursor" / "agents" / "01_team_lead.md")
+        self.assertEqual(model, "opus-4.6")
 
 
 if __name__ == "__main__":

@@ -9,6 +9,9 @@
 
 未先将顶层 `debugger/common/` 拷入当前平台根目录的 `common/` 之前，不允许在宿主中使用当前平台模板。
 
+- 当前宿主不支持 custom agents、native skills、native hooks 与 per-agent model control。
 - 当前宿主按 `workflow_stage` 降级运行；最终仍必须生成 `artifacts/run_compliance.yaml` 才算合规结案。
 - 不得在该宿主上模拟实时 multi-agent handoff。
+- 当前平台不提供 native `MCP` 入口；不得假设宿主侧存在可直接连接的 MCP server。
+- 若任务需要 experimental remote rehydrate、多 live owners 或 per-agent model routing，必须切回更高能力平台。
 运行时工作区固定为：`../workspace`

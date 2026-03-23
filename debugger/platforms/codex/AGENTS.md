@@ -23,14 +23,14 @@
 
 1. common/AGENT_CORE.md
 2. common/config/platform_adapter.json
-3. common/skills/renderdoc-rdc-gpu-debug/SKILL.md
+3. common/skills/rdc-debugger/SKILL.md
 4. common/docs/platform-capability-model.md
 5. common/docs/model-routing.md
 
 强制规则：
 
-- 正常用户入口只有 `team_lead`
-- 其他 specialist 默认是 internal/debug-only，由 `team_lead` 决定是否分派
+- 正常用户入口只有 `rdc-debugger`
+- `team_lead` 与其他 specialist 默认是 internal/debug-only，由 `rdc-debugger` 完成用户侧入口与 handoff
 - 用户未提交 `.rdc` 时，必须以 `BLOCKED_MISSING_CAPTURE` 停止，不得初始化 case/run 或继续做 debug、investigation、tool planning
 
 未先将 `debugger/common/` 整包覆盖到平台根 `common/`、且将 RDC-Agent-Tools 整包覆盖到平台根 `tools/` 之前，不允许在宿主中使用当前平台模板。
@@ -44,7 +44,7 @@
 
 规则：
 
-- `team_lead` 是唯一的 runtime_owner，负责所有 agent 分派与工具执行。
+- `team_lead` 是唯一的 runtime_owner，负责所有 agent 分派与工具执行；public main skill 仍然是 `rdc-debugger`。
 - Specialist sub-agents 只能通过 workspace artifacts 传递调查结果，不得直接调用或消息通知其他 specialist。
 - 所有跨 agent 信息传递路径：sub-agent 将结果写入 `workspace/cases/<case_id>/runs/<run_id>/` 指定位置 → `team_lead` 读取后决定下一步分派。
 - Specialist 不得直接分派其他 specialist，所有分派必须经由 `team_lead`。

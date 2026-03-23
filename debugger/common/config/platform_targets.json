@@ -5,11 +5,12 @@
       "workspace_root": "platforms/claude-code",
       "status_label": "full",
       "agent_dir": ".claude/agents",
-      "skill_dir": null,
+      "skill_dir": ".claude/skills/rdc-debugger",
       "role_config_dir": null,
       "entrypoint_file": ".claude/CLAUDE.md",
       "native_surfaces": [
         "agents",
+        "skills",
         "hooks",
         "mcp",
         "per_agent_model"
@@ -19,7 +20,7 @@
       "workspace_root": "platforms/code-buddy",
       "status_label": "reference",
       "agent_dir": "agents",
-      "skill_dir": "skills/renderdoc-rdc-gpu-debug",
+      "skill_dir": "skills/rdc-debugger",
       "role_config_dir": null,
       "entrypoint_file": "README.md",
       "native_surfaces": [
@@ -35,7 +36,7 @@
       "workspace_root": "platforms/copilot-cli",
       "status_label": "full",
       "agent_dir": "agents",
-      "skill_dir": "skills/renderdoc-rdc-gpu-debug",
+      "skill_dir": "skills/rdc-debugger",
       "role_config_dir": null,
       "entrypoint_file": "README.md",
       "native_surfaces": [
@@ -50,7 +51,7 @@
       "workspace_root": "platforms/copilot-ide",
       "status_label": "full",
       "agent_dir": ".github/agents",
-      "skill_dir": ".github/skills/renderdoc-rdc-gpu-debug",
+      "skill_dir": ".github/skills/rdc-debugger",
       "role_config_dir": null,
       "entrypoint_file": ".github/copilot-instructions.md",
       "native_surfaces": [
@@ -65,10 +66,11 @@
       "workspace_root": "platforms/claude-desktop",
       "status_label": "degraded",
       "agent_dir": null,
-      "skill_dir": null,
+      "skill_dir": "skills/rdc-debugger",
       "role_config_dir": null,
       "entrypoint_file": "references/entrypoints.md",
       "native_surfaces": [
+        "skills",
         "desktop_mcp_config"
       ]
     },
@@ -76,10 +78,11 @@
       "workspace_root": "platforms/manus",
       "status_label": "degraded",
       "agent_dir": null,
-      "skill_dir": null,
+      "skill_dir": "skills/rdc-debugger",
       "role_config_dir": null,
       "entrypoint_file": "references/entrypoints.md",
       "native_surfaces": [
+        "skills",
         "workflow"
       ]
     },
@@ -87,7 +90,7 @@
       "workspace_root": "platforms/codex",
       "status_label": "workspace-native",
       "agent_dir": null,
-      "skill_dir": ".agents/skills/renderdoc-rdc-gpu-debug",
+      "skill_dir": ".agents/skills/rdc-debugger",
       "role_config_dir": ".codex/agents",
       "entrypoint_file": "AGENTS.md",
       "native_surfaces": [
@@ -102,7 +105,7 @@
       "workspace_root": "platforms/cursor",
       "status_label": "full",
       "agent_dir": "agents",
-      "skill_dir": "skills/renderdoc-rdc-gpu-debug",
+      "skill_dir": "skills/rdc-debugger",
       "role_config_dir": null,
       "entrypoint_file": ".cursorrules",
       "native_surfaces": [

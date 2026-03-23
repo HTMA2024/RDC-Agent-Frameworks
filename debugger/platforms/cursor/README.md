@@ -4,7 +4,7 @@
 
 入口规则：
 
-- 当前宿主支持 native agents、skills、rules-config hooks 与 `MCP`，但仍然必须从 `team_lead` 进入正式用户请求。
+- 当前宿主支持 native agents、skills、rules-config hooks 与 `MCP`，正式用户请求应先从 `rdc-debugger` 进入，再由它把任务交给 `team_lead`。
 - 当前宿主的正式支持路径是 local-first 调试与 `run_compliance.yaml` 合规裁决；`experimental remote rehydrate` 不属于默认支持能力。
 
 使用方式：
@@ -16,7 +16,7 @@
 5. 正式发起 debug 前，用户必须在当前对话提交至少一份 `.rdc`。
 6. 使用当前平台根目录同级的 `workspace/` 作为运行区。
 7. 完成覆盖后，再在 Cursor 中打开当前平台根目录。
-8. 正常用户请求从 `team_lead` 发起；其他 specialist 默认是 internal/debug-only。
+8. 正常用户请求从 `rdc-debugger` 发起；`team_lead` 与其他 specialist 默认是 internal/debug-only。
 
 约束：
 

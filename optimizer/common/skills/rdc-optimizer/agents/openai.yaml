@@ -1,0 +1,4 @@
+interface:
+  display_name: "RDC Optimizer"
+  short_description: "性能优化与实验主入口"
+  default_prompt: "Use $rdc-optimizer to intake an optimization request and structure it for the optimizer framework."

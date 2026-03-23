@@ -8,7 +8,7 @@
                                                       "command":  "python"
                                                   }
                    },
-    "description":  "RenderDoc/RDC GPU Debug - Claude Code platform-local common adaptation with session-wide team-lead entry",
+    "description":  "RenderDoc/RDC GPU Debug - Claude Code platform-local common adaptation with rdc-debugger public entry and team-lead orchestration bootstrap",
     "hooks":  {
                   "PostToolUse":  [
                                       {

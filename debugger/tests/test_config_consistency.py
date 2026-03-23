@@ -55,8 +55,15 @@ class ConfigConsistencyTests(unittest.TestCase):
         }
         self.assertIn("cursor", expected_role_platforms)
 
+        for key, row in (capabilities.get("platforms") or {}).items():
+            self.assertTrue(((row.get("capabilities") or {}).get("skills") or {}).get("supported"), key)
+
         for role in (manifest.get("roles") or []):
             self.assertEqual(set((role.get("platform_files") or {}).keys()), expected_role_platforms)
+
+        compliance_entry = (compliance.get("entry_model") or {})
+        self.assertEqual(compliance_entry.get("public_entry_skill"), "rdc-debugger")
+        self.assertEqual(compliance_entry.get("orchestration_role"), "team_lead")
 
     def test_validate_tool_contract_reader_reports_invalid_adapter_json(self) -> None:
         module = _load_module(DEBUGGER_ROOT / "scripts" / "validate_tool_contract.py", "validate_tool_contract_module")
@@ -92,6 +99,23 @@ class ConfigConsistencyTests(unittest.TestCase):
         path, model = expected
         self.assertEqual(path, DEBUGGER_ROOT / "platforms" / "cursor" / "agents" / "01_team_lead.md")
         self.assertEqual(model, "opus-4.6")
+
+    def test_hypothesis_board_schema_requires_intent_gate(self) -> None:
+        import yaml
+
+        schema = yaml.safe_load(
+            (DEBUGGER_ROOT / "common" / "hooks" / "schemas" / "hypothesis_board_schema.yaml").read_text(
+                encoding="utf-8-sig"
+            )
+        )
+        board = schema.get("hypothesis_board") or {}
+        self.assertIn("intent_gate", board.get("required_fields") or [])
+        intent_gate = board.get("intent_gate") or {}
+        self.assertIn("decision", intent_gate.get("required_fields") or [])
+        self.assertEqual(
+            set(intent_gate.get("decision_allowed") or []),
+            {"debugger", "analyst", "optimizer", "out_of_scope_or_ambiguous"},
+        )
 
 
 if __name__ == "__main__":

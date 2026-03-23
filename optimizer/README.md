@@ -41,3 +41,11 @@ Optimization 的主驱动是“性能预算不变量”（frame time / bandwidth
 - `docs/`：指标定义、实验方法、回归策略与报告模板
 - `knowledge/`：历史优化案例、实验记录与索引
 - `hooks/`：质量校验（例如：性能回归阈值、指标完整性检查）
+
+## 当前入口
+
+当前最小 public entry 位于：
+
+- `common/skills/rdc-optimizer/SKILL.md`
+
+它只承担 intake 与边界声明，不代表 `optimizer` 已完成平台化、实验闭环或运行时验证合同。

@@ -1,5 +1,10 @@
 {
   "schema_version": 1,
+  "entry_model": {
+    "public_entry_skill": "rdc-debugger",
+    "orchestration_role": "team_lead",
+    "panel_state_source": "workspace/cases/<case_id>/runs/<run_id>/notes/hypothesis_board.yaml"
+  },
   "runtime_artifact_contract": {
     "run_root_layout": "workspace/cases/<case_id>/runs/<run_id>",
     "required_case_files": [
@@ -62,7 +67,6 @@
   },
   "platforms": {
     "code-buddy": {
-      "formal_entry_role": "team_lead",
       "coordination_mode": "concurrent_team",
       "required_surfaces": [
         "agents",
@@ -75,7 +79,6 @@
       "requires_run_compliance_artifact": true
     },
     "claude-code": {
-      "formal_entry_role": "team_lead",
       "coordination_mode": "concurrent_team",
       "required_surfaces": [
         "agents",
@@ -88,7 +91,6 @@
       "requires_run_compliance_artifact": true
     },
     "copilot-cli": {
-      "formal_entry_role": "team_lead",
       "coordination_mode": "staged_handoff",
       "required_surfaces": [
         "agents",
@@ -101,7 +103,6 @@
       "requires_run_compliance_artifact": true
     },
     "copilot-ide": {
-      "formal_entry_role": "team_lead",
       "coordination_mode": "staged_handoff",
       "required_surfaces": [
         "agents",
@@ -113,7 +114,6 @@
       "requires_run_compliance_artifact": true
     },
     "claude-desktop": {
-      "formal_entry_role": "team_lead",
       "coordination_mode": "workflow_stage",
       "required_surfaces": [
         "mcp",
@@ -124,7 +124,6 @@
       "requires_run_compliance_artifact": true
     },
     "manus": {
-      "formal_entry_role": "team_lead",
       "coordination_mode": "workflow_stage",
       "required_surfaces": [
         "workflow"
@@ -134,7 +133,6 @@
       "requires_run_compliance_artifact": true
     },
     "codex": {
-      "formal_entry_role": "team_lead",
       "coordination_mode": "staged_handoff",
       "required_surfaces": [
         "agents",
@@ -146,7 +144,6 @@
       "requires_run_compliance_artifact": true
     },
     "cursor": {
-      "formal_entry_role": "team_lead",
       "coordination_mode": "concurrent_team",
       "required_surfaces": [
         "agents",

@@ -1,4 +1,4 @@
-# RenderDoc/RDC GPU Debug Agent Core（框架核心约束）
+﻿# RenderDoc/RDC GPU Debug Agent Core（框架核心约束）
 
 本文件是 `RenderDoc/RDC GPU Debug` framework 的全局约束入口。
 
@@ -27,7 +27,23 @@
 - `causal_anchor`、workspace、artifact/gate 的硬约束
 - 多平台能力差异下的降级编排原则
 
-## 2. Mandatory Setup Verification
+## 2. Mandatory Intent Gate
+
+所有进入 `debugger` 的正式请求，在做 debugger-specific preflight、capture intake、case/run 初始化、`team_lead` handoff 之前，必须先由 `rdc-debugger` 执行 `intent_gate`。
+
+硬规则：
+
+- `rdc-debugger` 是唯一 framework classifier。
+- `team_lead`、`triage_agent`、`capture_repro_agent` 与其他 specialist 不得重做 framework 判定。
+- `intent_gate` 只能由主入口 LLM 按显式 rubric 执行；不得引入 Python classifier、hook classifier 或 specialist 二次改判。
+- A/B 可能只是 debugger 的证据方法，不自动等于 analyst。
+- 若任务主要在问“哪里不同”，且没有 root-cause / fix-verification 目标，则必须 reject + redirect 到 `rdc-analyst`。
+- 若任务主要在问性能、预算、瓶颈、收益，则必须 reject + redirect 到 `rdc-optimizer`。
+- ambiguity 允许多轮澄清，且多轮期间不创建 case/run，也不创建 `hypothesis_board.yaml`。
+
+只有当 `intent_gate.decision=debugger` 时，后续 debugger-specific preflight、capture、handoff 才允许继续。
+
+## 3. Mandatory Setup Verification
 
 所有需要平台真相的工作在开始前，必须先验证以下两项均已就绪：
 
@@ -59,7 +75,7 @@
 3. 不允许把 `CLI` wrapper、skill 文本、平台模板说明或模型记忆当成 Tools 真相替代品。
 4. 不允许尝试搜索替代工具路径、降级处理或用其他方式绕过本检查。
 
-## 3. Mandatory Capture Intake
+## 4. Mandatory Capture Intake
 
 所有进入 `RenderDoc/RDC GPU Debug` workflow 的任务，在开始前必须先取得至少一份用户提供的 `.rdc`。
 
@@ -79,7 +95,7 @@
 当前任务缺少必需的 capture 输入：本框架只接受基于 RenderDoc `.rdc` 的第一性调试。请先在当前对话中提交一份或多份 `.rdc` 文件；收到并导入 capture 前，Agent 不会继续进行 debug、调查分派或根因判断。
 ```
 
-## 4. Mandatory Intake Normalization
+## 5. Mandatory Intake Normalization
 
 用户可以用自由语言描述问题，但 framework 只承认七段式 intake 被规范化后的 `case_input.yaml`。
 
@@ -98,6 +114,7 @@
 
 硬规则：
 
+- `rdc-debugger` 是 public main skill，负责 preflight、补料与 handoff 组织
 - `team_lead` 是唯一 intake 规范化者
 - specialist 不得绕过 `case_input.yaml` 直接消费原始 prose prompt 作为系统真相
 - `case_input.yaml` 必须包含：
@@ -127,7 +144,7 @@
   - `baseline.source` 必须为 `historical_good`
   - `baseline.provenance` 必须包含 known-good build 或 revision
 
-## 5. Global Entry Contract
+## 6. Global Entry Contract
 
 内部 `agent_id` SSOT：
 
@@ -143,12 +160,14 @@
 
 入口规则：
 
-- `team_lead` 是当前 framework 唯一正式用户入口，承担 orchestrator + intake normalizer 语义。
+- `rdc-debugger` 是当前 framework 唯一 public main skill。
+- `rdc-debugger` 也是当前 framework 唯一 classifier。
+- `team_lead` 是唯一 orchestrator + intake normalizer，不是 public main skill。
 - 其他角色默认是 internal/debug-only specialist，不是正常用户入口。
-- 若宿主无法隐藏 specialist 入口，仍必须明确：正常用户请求应先交给 `team_lead` 路由。
+- 若宿主无法隐藏 `team_lead` 或 specialist 入口，仍必须明确：正常用户请求应先交给 `rdc-debugger`。
 - specialist 不得绕过 `team_lead` 重新定义任务 intake、验证等级、裁决门槛或 delegation policy。
 
-## 6. Global Workflow
+## 7. Global Workflow
 
 统一工作流：
 
@@ -188,9 +207,9 @@
 - `workflow_stage` 只允许阶段化串行推进，不模拟真实的 team-agent 并发 handoff
 - remote case 一律服从 `single_runtime_owner`；不得因为 multi-agent 就共享 live remote runtime
 
-## 7. Hard Contracts
+## 8. Hard Contracts
 
-### 7.1 Causal Anchor
+### 8.1 Causal Anchor
 
 在做任何根因级裁决前，必须先建立 `causal_anchor`。
 
@@ -202,7 +221,7 @@
 - 结构化 `rd.*` 证据优先级高于视觉叙事
 - 证据冲突时必须进入 `BLOCKED_REANCHOR`
 
-### 7.2 Reference Contract
+### 8.2 Reference Contract
 
 `reference_contract` 是语义修复验证的唯一合同。
 
@@ -221,7 +240,7 @@
 - `probe_set` 缺失时，只允许 fallback 级语义验证
 - `visual_comparison` 不得单独产生 strict semantic pass
 
-### 7.3 Session / Runtime Coordination
+### 8.3 Session / Runtime Coordination
 
 - `session_id` 必须来自 replay session 打开链路
 - 进入根因分析前必须先建立 `causal_anchor`
@@ -233,7 +252,7 @@
 - 跨 agent 或跨轮次移交 live 调试上下文时，必须提供可重建的 `runtime_baton`
 - `runtime_baton` 的恢复顺序与语义以 `common/docs/runtime-coordination-model.md` 为准
 
-### 7.4 Workspace Contract
+### 8.4 Workspace Contract
 
 - `common/` 是唯一共享真相
 - `../workspace/` 是 case/run 运行区
@@ -270,6 +289,8 @@
 - `inputs/captures/` 与 `inputs/references/` 分层，不得混放
 - `runs/<run_id>/capture_refs.yaml` 必须显式记录 `capture_role` 与 provenance
 - `runs/<run_id>/artifacts/fix_verification.yaml` 是 run 级修复验证唯一权威 artifact
+- `runs/<run_id>/notes/hypothesis_board.yaml` 是 run 创建后唯一 panel/progress 结构化状态源
+- `runs/<run_id>/notes/hypothesis_board.yaml` 必须包含由 `rdc-debugger` 提交的 `intent_gate` 摘要
 - 第一层真相产物继续写入 `common/knowledge/library/**`
 - 第二层交付层写入 `../workspace/cases/<case_id>/runs/<run_id>/reports/`
 
@@ -309,7 +330,7 @@
 - `skeptic_agent` 只允许写 `session_signoff`
 - `curator_agent` 负责 `workspace_reports`、`session_artifacts` 与 `knowledge_library`
 
-### 7.5 Artifact / Gate Contract
+### 8.5 Artifact / Gate Contract
 
 结案前必须具备：
 
@@ -332,7 +353,7 @@
 - `overall_result` 只能由 `structural=passed && semantic=passed` 派生
 - `semantic_verification.status=fallback_only` 时，严格结案无效
 
-## 8. Canonical References
+## 9. Canonical References
 
 共享 framework 入口：
 
@@ -357,5 +378,5 @@
 角色与技能入口：
 
 - `common/agents/*.md`
-- `common/skills/renderdoc-rdc-gpu-debug/SKILL.md`
+- `common/skills/rdc-debugger/SKILL.md`
 - `common/skills/*/SKILL.md`

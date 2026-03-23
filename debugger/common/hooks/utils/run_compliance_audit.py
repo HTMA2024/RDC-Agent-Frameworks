@@ -34,6 +34,7 @@ if str(VALIDATORS_ROOT) not in sys.path:
 
 from knowledge_evolution import default_promotion_metrics, upsert_candidate  # noqa: E402
 from spec_store import active_spec_versions, load_active_sops, spec_snapshot_ref  # noqa: E402
+from hypothesis_board_validator import validate_hypothesis_board  # noqa: E402
 from intake_validator import validate_case_input  # noqa: E402
 
 
@@ -232,6 +233,41 @@ def _fix_verification_issues(data: Any) -> list[str]:
         issues.append("fix_verification.semantic_verification.probe_summary must be a non-empty list")
     if not isinstance(structural.get("anomaly_cleared"), bool):
         issues.append("fix_verification.structural_verification.anomaly_cleared must be boolean")
+    return issues
+
+
+def _intent_gate_acceptance_issues(board_data: Any) -> list[str]:
+    issues: list[str] = []
+    if not isinstance(board_data, dict):
+        return ["hypothesis_board must be a YAML object"]
+    root = board_data.get("hypothesis_board")
+    if not isinstance(root, dict):
+        return ["hypothesis_board root object must exist"]
+    intent_gate = root.get("intent_gate")
+    if not isinstance(intent_gate, dict):
+        return ["hypothesis_board.intent_gate must be an object"]
+
+    if str(intent_gate.get("decision", "")).strip() != "debugger":
+        issues.append("hypothesis_board.intent_gate.decision must be debugger for accepted debugger runs")
+    if str(intent_gate.get("judged_by", "")).strip() != "rdc-debugger":
+        issues.append("hypothesis_board.intent_gate.judged_by must be rdc-debugger")
+
+    scores = intent_gate.get("scores")
+    if not isinstance(scores, dict):
+        issues.append("hypothesis_board.intent_gate.scores must be an object")
+    else:
+        for field in ("debugger", "analyst", "optimizer"):
+            if not isinstance(scores.get(field), (int, float)):
+                issues.append(f"hypothesis_board.intent_gate.scores.{field} must be numeric")
+
+    rationale = intent_gate.get("rationale")
+    if not _nonempty_str(rationale):
+        issues.append("hypothesis_board.intent_gate.rationale must be non-empty")
+
+    redirect_target = intent_gate.get("redirect_target")
+    if str(redirect_target or "").strip():
+        issues.append("hypothesis_board.intent_gate.redirect_target must be empty for accepted debugger runs")
+
     return issues
 
 
@@ -801,6 +837,7 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
     case_input_data = _read_yaml(case_input) if case_input.is_file() else {}
     references_manifest_data = _read_yaml(references_manifest) if references_manifest.is_file() else {}
     fix_verification_data = _read_yaml(fix_verification) if fix_verification.is_file() else {}
+    hypothesis_board_data = _read_yaml(hypothesis_board) if hypothesis_board.is_file() else {}
     events = _load_action_chain(action_chain) if action_chain.is_file() else []
     indexed = _event_index(events)
     active_manifest = root / "common" / "knowledge" / "spec" / "registry" / "active_manifest.yaml"
@@ -846,6 +883,25 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
     elif not isinstance(references_manifest_data.get("references"), list):
         references_issues.append("references manifest must contain references list")
     _check(checks, "references_manifest_schema", not references_issues, "inputs/references/manifest.yaml must be well-formed", path=references_manifest if references_manifest.is_file() else None, refs=references_issues[:8] or None)
+
+    hypothesis_board_issues = validate_hypothesis_board(hypothesis_board_data) if hypothesis_board.is_file() else ["hypothesis_board missing"]
+    _check(
+        checks,
+        "hypothesis_board_schema",
+        not hypothesis_board_issues,
+        "notes/hypothesis_board.yaml must satisfy panel/orchestration schema",
+        path=hypothesis_board if hypothesis_board.is_file() else None,
+        refs=hypothesis_board_issues[:8] or None,
+    )
+    intent_gate_issues = _intent_gate_acceptance_issues(hypothesis_board_data) if hypothesis_board.is_file() else ["hypothesis_board missing"]
+    _check(
+        checks,
+        "intent_gate_acceptance",
+        not intent_gate_issues,
+        "accepted debugger runs must carry an intent_gate from rdc-debugger",
+        path=hypothesis_board if hypothesis_board.is_file() else None,
+        refs=intent_gate_issues[:8] or None,
+    )
 
     fix_verification_issues = _fix_verification_issues(fix_verification_data) if fix_verification.is_file() else ["fix_verification missing"]
     _check(checks, "fix_verification_schema", not fix_verification_issues, "fix_verification.yaml must be structurally valid", path=fix_verification if fix_verification.is_file() else None, refs=fix_verification_issues[:8] or None)

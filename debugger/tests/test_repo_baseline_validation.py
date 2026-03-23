@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import importlib.util
 import json
@@ -26,6 +26,19 @@ class RepoBaselineValidationTests(unittest.TestCase):
         findings = validator._doc_contract_findings(DEBUGGER_ROOT)
         self.assertEqual(findings, [])
 
+    def test_rdc_debugger_skill_declares_intent_gate_contract(self) -> None:
+        text = (DEBUGGER_ROOT / "common" / "skills" / "rdc-debugger" / "SKILL.md").read_text(encoding="utf-8-sig")
+        for marker in (
+            "intent_gate",
+            "primary_completion_question",
+            "requested_artifact",
+            "dominant_operation",
+            "ab_role",
+            "拒绝进入 `debugger`",
+            "多轮澄清",
+        ):
+            self.assertIn(marker, text)
+
     def test_scaffold_expected_paths_cover_cursor(self) -> None:
         scaffold = _load_module(DEBUGGER_ROOT / "scripts" / "sync_platform_scaffolds.py", "sync_platform_scaffolds_module")
         ctx = scaffold.load_context(DEBUGGER_ROOT)
@@ -33,7 +46,7 @@ class RepoBaselineValidationTests(unittest.TestCase):
         self.assertIn(DEBUGGER_ROOT / "platforms" / "cursor" / ".cursorrules", expected)
         self.assertIn(DEBUGGER_ROOT / "platforms" / "cursor" / ".cursor" / "mcp.json", expected)
         self.assertIn(DEBUGGER_ROOT / "platforms" / "cursor" / "agents" / "01_team_lead.md", expected)
-        self.assertIn(DEBUGGER_ROOT / "platforms" / "cursor" / "skills" / "renderdoc-rdc-gpu-debug" / "SKILL.md", expected)
+        self.assertIn(DEBUGGER_ROOT / "platforms" / "cursor" / "skills" / "rdc-debugger" / "SKILL.md", expected)
         self.assertIn(DEBUGGER_ROOT / "platforms" / "cursor" / "hooks" / "hooks.json", expected)
 
     def test_claude_settings_matchers_are_strings(self) -> None:
@@ -74,6 +87,12 @@ class RepoBaselineValidationTests(unittest.TestCase):
             )
         )
         self.assertEqual(settings.get("agent"), "team-lead")
+
+        compliance = json.loads(
+            (DEBUGGER_ROOT / "common" / "config" / "framework_compliance.json").read_text(encoding="utf-8-sig")
+        )
+        self.assertEqual(compliance.get("entry_model", {}).get("public_entry_skill"), "rdc-debugger")
+        self.assertEqual(compliance.get("entry_model", {}).get("orchestration_role"), "team_lead")
 
     def test_claude_code_agent_frontmatter_has_names_and_descriptions(self) -> None:
         manifest = json.loads((DEBUGGER_ROOT / "common" / "config" / "role_manifest.json").read_text(encoding="utf-8-sig"))

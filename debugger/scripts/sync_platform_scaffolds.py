@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Validate or refresh the minimal debugger platform scaffold topology."""
 
 from __future__ import annotations
@@ -17,6 +17,7 @@ COMMON = ROOT / "common"
 CONFIG_ROOT = COMMON / "config"
 FORBIDDEN_DIRS = ("docs", "scripts")
 PLATFORMS_WITH_GENERATED_HOOKS = {"code-buddy", "copilot-cli", "cursor"}
+LEGACY_ENTRY_SKILL_DIRS = {"renderdoc-rdc-gpu-debug"}
 
 
 def normalize(text: str) -> str:
@@ -37,6 +38,7 @@ def load_context(root: Path = ROOT) -> dict[str, Any]:
         "role_manifest": read_json(root / "common" / "config" / "role_manifest.json"),
         "platform_targets": read_json(root / "common" / "config" / "platform_targets.json"),
         "platform_capabilities": read_json(root / "common" / "config" / "platform_capabilities.json"),
+        "framework_compliance": read_json(root / "common" / "config" / "framework_compliance.json"),
     }
 
 
@@ -137,11 +139,14 @@ cases/
 
 
 def validate_source_tree(ctx: dict[str, Any]) -> list[str]:
+    public_entry_skill = str(
+        ((ctx.get("framework_compliance") or {}).get("entry_model") or {}).get("public_entry_skill", "")
+    ).strip()
     required = [
         COMMON,
         COMMON / "README.md",
         COMMON / "agents",
-        COMMON / "skills" / "renderdoc-rdc-gpu-debug" / "SKILL.md",
+        COMMON / "skills" / public_entry_skill / "SKILL.md",
         COMMON / "docs" / "workspace-layout.md",
         COMMON / "knowledge" / "proposals" / "README.md",
         CONFIG_ROOT / "role_manifest.json",
@@ -172,6 +177,9 @@ def expected_files(ctx: dict[str, Any], platform_key: str) -> set[Path]:
     package = ROOT / "platforms" / platform_key
     capabilities = ctx["platform_capabilities"]["platforms"][platform_key]
     target = ctx["platform_targets"]["platforms"][platform_key]
+    public_entry_skill = str(
+        ((ctx.get("framework_compliance") or {}).get("entry_model") or {}).get("public_entry_skill", "")
+    ).strip()
     expected = {
         package / "README.md",
         package / "AGENTS.md",
@@ -204,6 +212,7 @@ def expected_files(ctx: dict[str, Any], platform_key: str) -> set[Path]:
         skill_root = package / Path(skill_dir).parent
         for role in ctx["role_manifest"]["roles"]:
             expected.add(skill_root / Path(role["role_skill_path"]).parent.name / "SKILL.md")
+        expected.add(skill_root / public_entry_skill / "SKILL.md")
 
     if platform_key in PLATFORMS_WITH_GENERATED_HOOKS:
         expected.add(package / "hooks" / "hooks.json")
@@ -264,7 +273,90 @@ def stale_findings(platform_key: str) -> list[str]:
             findings.append(f"forbidden copied shared directory: {target}")
     for path in package.rglob("README.copy-common.md"):
         findings.append(f"forbidden copy-common artifact: {path}")
+    for path in package.rglob("renderdoc-rdc-gpu-debug"):
+        findings.append(f"legacy entry skill directory must not exist: {path}")
     return findings
+
+
+def _rel_from(source_dir: Path, target: Path) -> str:
+    return os.path.relpath(target, source_dir).replace("\\", "/")
+
+
+def _public_entry_skill(ctx: dict[str, Any]) -> str:
+    return str(((ctx.get("framework_compliance") or {}).get("entry_model") or {}).get("public_entry_skill", "")).strip()
+
+
+def _orchestration_role(ctx: dict[str, Any]) -> str:
+    return str(((ctx.get("framework_compliance") or {}).get("entry_model") or {}).get("orchestration_role", "")).strip()
+
+
+def main_skill_wrapper_text(ctx: dict[str, Any], platform_key: str) -> str:
+    package = ROOT / "platforms" / platform_key
+    target = ctx["platform_targets"]["platforms"][platform_key]
+    wrapper_dir = package / str(target.get("skill_dir", "")).strip()
+    display_name = str((ctx["platform_capabilities"]["platforms"][platform_key] or {}).get("display_name", platform_key)).strip()
+    public_entry_skill = _public_entry_skill(ctx)
+    local_common = package / "common"
+    common_skill = _rel_from(wrapper_dir, local_common / "skills" / public_entry_skill / "SKILL.md")
+    caps = _rel_from(wrapper_dir, local_common / "config" / "platform_capabilities.json")
+    adapter = _rel_from(wrapper_dir, local_common / "config" / "platform_adapter.json")
+    return f"""# RDC Debugger Main Skill Wrapper
+
+当前文件是 {display_name} 的 public main skill 入口。
+
+正常用户请求先进入 `{public_entry_skill}`。本 skill 负责 preflight、补料、intake 规范化，并在条件满足后把任务交给 `team_lead`。
+
+本 skill 只引用当前平台根目录的 `common/`：
+
+- {common_skill}
+- 进入任何平台真相相关工作前，必须先校验 {adapter}
+- coordination_mode 与降级边界以 {caps} 的当前平台定义为准。
+
+未先将顶层 `debugger/common/` 拷入当前平台根目录的 `common/` 之前，不允许在宿主中使用当前平台模板。
+
+运行时 case/run 现场与第二层报告统一写入：`../workspace`
+"""
+
+
+def role_skill_wrapper_text(ctx: dict[str, Any], platform_key: str, role: dict[str, Any]) -> str:
+    package = ROOT / "platforms" / platform_key
+    target = ctx["platform_targets"]["platforms"][platform_key]
+    skill_root = package / Path(str(target.get("skill_dir", "")).strip()).parent
+    wrapper_dir = skill_root / Path(role["role_skill_path"]).parent.name
+    display_name = str((ctx["platform_capabilities"]["platforms"][platform_key] or {}).get("display_name", platform_key)).strip()
+    public_entry_skill = _public_entry_skill(ctx)
+    orchestration_role = _orchestration_role(ctx)
+    local_common = package / "common"
+    main_skill = _rel_from(wrapper_dir, local_common / "skills" / public_entry_skill / "SKILL.md")
+    role_skill = _rel_from(wrapper_dir, local_common / role["role_skill_path"])
+    caps = _rel_from(wrapper_dir, local_common / "config" / "platform_capabilities.json")
+    agent_id = str(role.get("agent_id", "")).strip()
+
+    if agent_id == orchestration_role:
+        role_intro = "该角色只负责 orchestration，不是 public main skill。正常用户请求应先从 `rdc-debugger` 发起，当前 role 只接收 normalized intake / task handoff。"
+        title = "Team Lead Skill Wrapper（角色技能入口）"
+        extra = "在 `run_compliance.yaml(status=passed)` 生成前，你只能输出阶段性 brief，不得宣称最终裁决。"
+    else:
+        role_intro = "该角色默认是 internal/debug-only specialist。正常用户请求应先交给 `rdc-debugger`，只有调试 framework 本身时才直接使用该角色。"
+        title = "Role Skill Wrapper"
+        extra = ""
+
+    tail = "\n" + extra if extra else ""
+    return f"""# {title}
+
+当前文件是 {display_name} 的 role skill 入口。
+
+{role_intro}
+
+先阅读：
+
+1. {main_skill}
+2. {role_skill}
+3. {caps}
+
+未先将顶层 `debugger/common/` 拷入当前平台根目录的 `common/` 之前，不允许在宿主中使用当前平台模板。{tail}
+运行时 case/run 现场与第二层报告统一写入：`../workspace`
+"""
 
 
 def collect_findings(ctx: dict[str, Any], platform_key: str) -> list[str]:
@@ -290,6 +382,31 @@ def sync_placeholders(platform_key: str) -> None:
     write_text(package / "workspace" / "cases" / "README.md", cases_placeholder_text())
 
 
+def sync_skill_wrappers(ctx: dict[str, Any], platform_key: str) -> None:
+    package = ROOT / "platforms" / platform_key
+    target = ctx["platform_targets"]["platforms"][platform_key]
+    skill_dir = target.get("skill_dir")
+    if not skill_dir:
+        return
+
+    skill_root = package / Path(skill_dir).parent
+    public_entry_skill = _public_entry_skill(ctx)
+    desired_names = {public_entry_skill}
+
+    write_text(skill_root / public_entry_skill / "SKILL.md", main_skill_wrapper_text(ctx, platform_key))
+    for role in ctx["role_manifest"]["roles"]:
+        role_name = Path(role["role_skill_path"]).parent.name
+        desired_names.add(role_name)
+        write_text(skill_root / role_name / "SKILL.md", role_skill_wrapper_text(ctx, platform_key, role))
+
+    if skill_root.is_dir():
+        for child in skill_root.iterdir():
+            if not child.is_dir():
+                continue
+            if child.name in LEGACY_ENTRY_SKILL_DIRS or child.name not in desired_names:
+                shutil.rmtree(child)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Validate or refresh minimal debugger platform scaffolds")
     parser.add_argument("--check", action="store_true", help="Validate scaffold topology without rewriting placeholders")
@@ -311,6 +428,7 @@ def main(argv: list[str] | None = None) -> int:
 
     for platform_key in ctx["platform_capabilities"]["platforms"]:
         sync_placeholders(platform_key)
+        sync_skill_wrappers(ctx, platform_key)
     if findings:
         print("[platform scaffold findings]")
         for row in findings:

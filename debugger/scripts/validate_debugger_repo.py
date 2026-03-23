@@ -158,6 +158,9 @@ def _doc_contract_findings(root: Path) -> list[str]:
     model_doc = (root / "common" / "docs" / "platform-capability-model.md").read_text(encoding="utf-8-sig")
     runtime_doc = (root / "common" / "docs" / "runtime-coordination-model.md").read_text(encoding="utf-8-sig")
     workspace_doc = (root / "common" / "docs" / "workspace-layout.md").read_text(encoding="utf-8-sig")
+    core_doc = (root / "common" / "AGENT_CORE.md").read_text(encoding="utf-8-sig")
+    intake_doc = (root / "common" / "docs" / "intake" / "README.md").read_text(encoding="utf-8-sig")
+    main_skill = (root / "common" / "skills" / "rdc-debugger" / "SKILL.md").read_text(encoding="utf-8-sig")
 
     required_matrix_rows = [
         "| Code Buddy |",
@@ -185,6 +188,22 @@ def _doc_contract_findings(root: Path) -> list[str]:
         findings.append("runtime-coordination-model.md must mark remote rehydrate as experimental")
     if "并行 case 只能共享仓库，不得共享同一条 live `context`" not in workspace_doc:
         findings.append("workspace-layout.md must define case/context isolation")
+    if "`rdc-debugger` 是唯一 framework classifier" not in core_doc:
+        findings.append("AGENT_CORE.md must declare rdc-debugger as the only framework classifier")
+    if "不得重做 framework 判定" not in core_doc:
+        findings.append("AGENT_CORE.md must forbid downstream framework reclassification")
+    if "misroute 必须 reject + redirect" not in intake_doc:
+        findings.append("intake/README.md must require reject + redirect for misroutes")
+    if "多轮期间不创建 case/run" not in intake_doc:
+        findings.append("intake/README.md must state that clarification rounds do not create case/run")
+    if "A/B 本身不等于 analyst" not in main_skill:
+        findings.append("rdc-debugger skill must state that A/B alone does not imply analyst")
+    if "primary_completion_question" not in main_skill or "dominant_operation" not in main_skill or "requested_artifact" not in main_skill or "ab_role" not in main_skill:
+        findings.append("rdc-debugger skill must define the intent_gate first-principles dimensions")
+    if "拒绝进入 `debugger`" not in main_skill:
+        findings.append("rdc-debugger skill must define reject-and-redirect behavior")
+    if "多轮澄清" not in main_skill:
+        findings.append("rdc-debugger skill must allow multi-round clarification before classification stabilizes")
 
     return findings
 
@@ -287,6 +306,14 @@ def _compliance_findings(root: Path) -> list[str]:
     caps = _read_json(root / "common" / "config" / "platform_capabilities.json")
     platforms = compliance.get("platforms") or {}
     cap_platforms = caps.get("platforms") or {}
+    entry_model = compliance.get("entry_model") or {}
+
+    if str(entry_model.get("public_entry_skill", "")).strip() != "rdc-debugger":
+        findings.append("framework_compliance.json entry_model.public_entry_skill must be rdc-debugger")
+    if str(entry_model.get("orchestration_role", "")).strip() != "team_lead":
+        findings.append("framework_compliance.json entry_model.orchestration_role must be team_lead")
+    if "notes/hypothesis_board.yaml" not in str(entry_model.get("panel_state_source", "")).strip():
+        findings.append("framework_compliance.json entry_model.panel_state_source must point to notes/hypothesis_board.yaml")
 
     if set(platforms) != set(cap_platforms):
         findings.append("framework_compliance.json and platform_capabilities.json platform keys differ")
@@ -402,6 +429,8 @@ def _intake_contract_findings(root: Path) -> list[str]:
         root / "common" / "docs" / "intake" / "examples" / "example_single.md",
         root / "common" / "docs" / "intake" / "examples" / "example_cross_device.md",
         root / "common" / "docs" / "intake" / "examples" / "example_regression.md",
+        root / "common" / "hooks" / "validators" / "hypothesis_board_validator.py",
+        root / "common" / "hooks" / "schemas" / "hypothesis_board_schema.yaml",
         root / "common" / "hooks" / "validators" / "intake_validator.py",
         root / "common" / "hooks" / "schemas" / "intake_case_input_schema.yaml",
         root / "common" / "hooks" / "schemas" / "fix_verification_schema.yaml",
@@ -445,25 +474,24 @@ def _claude_code_agent_findings(root: Path) -> list[str]:
     findings: list[str] = []
     manifest = _read_json(root / "common" / "config" / "role_manifest.json")
     role_policy = _read_json(root / "common" / "config" / "role_policy.json")
+    compliance = _read_json(root / "common" / "config" / "framework_compliance.json")
     settings = _read_json(root / "platforms" / "claude-code" / ".claude" / "settings.json")
 
     roles = manifest.get("roles") or []
     role_rows = role_policy.get("roles") or {}
     tool_policies = role_policy.get("tool_policies") or {}
     claude_agents_root = root / "platforms" / "claude-code" / ".claude" / "agents"
+    orchestration_role = str((compliance.get("entry_model") or {}).get("orchestration_role", "")).strip() or "team_lead"
 
-    formal_entry_name = None
-    for role in roles:
-        if role.get("formal_user_entry"):
-            formal_entry_name = _claude_code_subagent_name(role)
-            break
+    orchestration_row = next((role for role in roles if role.get("agent_id") == orchestration_role), None)
+    formal_entry_name = _claude_code_subagent_name(orchestration_row or {})
     if not formal_entry_name:
-        findings.append("role_manifest.json missing claude-code formal entry subagent name")
+        findings.append("role_manifest.json missing claude-code orchestration subagent name")
     else:
         actual_agent = str(settings.get("agent", "")).strip()
         if actual_agent != formal_entry_name:
             findings.append(
-                f"claude-code settings agent mismatch ({actual_agent} != {formal_entry_name})"
+                f"claude-code settings bootstrap agent mismatch ({actual_agent} != {formal_entry_name})"
             )
 
     for role in roles:
@@ -488,7 +516,7 @@ def _claude_code_agent_findings(root: Path) -> list[str]:
         if not description:
             findings.append(f"claude-code {role.get('agent_id')} missing description")
 
-    team_lead_role = next((role for role in roles if role.get("agent_id") == "team_lead"), None)
+    team_lead_role = next((role for role in roles if role.get("agent_id") == orchestration_role), None)
     if team_lead_role:
         team_lead_path = claude_agents_root / str((team_lead_role.get("platform_files") or {}).get("claude-code", ""))
         if not team_lead_path.is_file():
@@ -503,7 +531,7 @@ def _claude_code_agent_findings(root: Path) -> list[str]:
             expected_specialists = {
                 _claude_code_subagent_name(role)
                 for role in roles
-                if not role.get("formal_user_entry")
+                if str(role.get("agent_id", "")).strip() != orchestration_role
             }
             actual_specialists = _agent_allowlist(team_lead_tools)
             if actual_specialists != expected_specialists:
@@ -526,7 +554,7 @@ def _claude_code_agent_findings(root: Path) -> list[str]:
         policy_name = str((role_rows.get(agent_id) or {}).get("tool_policy", "")).strip()
         policy = tool_policies.get(policy_name) or {}
         allow_live_tools = bool(policy.get("allow_live_tools"))
-        if not allow_live_tools or role.get("formal_user_entry"):
+        if not allow_live_tools or agent_id == orchestration_role:
             continue
         platform_file = (role.get("platform_files") or {}).get("claude-code")
         if not platform_file:

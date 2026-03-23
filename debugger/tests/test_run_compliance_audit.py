@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import shutil
-import subprocess
 import sys
 import tempfile
 import unittest
@@ -22,6 +21,17 @@ AUDIT_SCRIPT = DEBUGGER_ROOT / "common" / "hooks" / "utils" / "run_compliance_au
 def _write(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
+
+
+def _load_module(path: Path, module_name: str):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def _seed_base(root: Path) -> None:
@@ -360,6 +370,7 @@ def _seed_run(
     coordination_mode: str,
     *,
     knowledge_context: dict | None = None,
+    intent_gate_override: dict | None = None,
 ) -> Path:
     case_root = root / "workspace" / "cases" / case_id
     run_root = case_root / "runs" / run_id
@@ -447,7 +458,54 @@ def _seed_run(
             allow_unicode=True,
         ),
     )
-    _write(run_root / "notes" / "hypothesis_board.yaml", "hypothesis_board:\n  hypotheses: []\n")
+    intent_gate = {
+        "classifier_version": 1,
+        "judged_by": "rdc-debugger",
+        "clarification_rounds": 0,
+        "normalized_user_goal": "validate fixture",
+        "primary_completion_question": "what caused the rendering defect and whether the fix is valid",
+        "dominant_operation": "verify_fix",
+        "requested_artifact": "fix_verification",
+        "ab_role": "evidence_method",
+        "scores": {"debugger": 9, "analyst": 1, "optimizer": 0},
+        "decision": "debugger",
+        "confidence": "high",
+        "hard_signals": {
+            "debugger_positive": ["fix verification requested"],
+            "analyst_positive": [],
+            "optimizer_positive": [],
+            "disqualifiers": [],
+        },
+        "rationale": "A/B is only being used to prove the defect cause and fix validity.",
+        "redirect_target": "",
+    }
+    if intent_gate_override is not None:
+        intent_gate.update(intent_gate_override)
+    _write(
+        run_root / "notes" / "hypothesis_board.yaml",
+        yaml.safe_dump(
+            {
+                "hypothesis_board": {
+                    "session_id": "sess_fixture_001",
+                    "entry_skill": "rdc-debugger",
+                    "user_goal": "validate fixture",
+                    "intake_state": "validation",
+                    "current_phase": "validation",
+                    "current_task": "review fixture validation artifacts",
+                    "active_owner": "team_lead",
+                    "pending_requirements": [],
+                    "blocking_issues": [],
+                    "progress_summary": ["case initialized", "artifacts written"],
+                    "next_actions": ["run compliance audit"],
+                    "last_updated": "2026-03-24T00:00:00Z",
+                    "intent_gate": intent_gate,
+                    "hypotheses": [],
+                }
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+    )
     _write(
         run_root / "reports" / "report.md",
         "\n".join(
@@ -466,14 +524,40 @@ def _seed_run(
     return run_root
 
 
-def _run_audit(root: Path, platform: str, run_root: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        [sys.executable, str(AUDIT_SCRIPT), "--root", str(root), "--platform", platform, "--run-root", str(run_root), "--strict"],
-        text=True,
-        capture_output=True,
-        encoding="utf-8",
-        errors="replace",
+class _ProcResult:
+    def __init__(self, returncode: int, stdout: str = "", stderr: str = "") -> None:
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+def _run_audit(root: Path, platform: str, run_root: Path) -> _ProcResult:
+    module = _load_module(AUDIT_SCRIPT, f"run_compliance_audit_module_{platform}_{run_root.name}")
+    try:
+        payload = module.run_audit(root, run_root, platform)
+    except Exception as exc:  # noqa: BLE001
+        return _ProcResult(2, "", str(exc))
+
+    action_chain_path = Path(payload["paths"]["action_chain"])
+    module._append_event(  # noqa: SLF001
+        action_chain_path,
+        {
+            "schema_version": module.ACTION_CHAIN_SCHEMA,
+            "event_id": f"evt-audit-run-compliance-{payload['status']}",
+            "ts_ms": module._now_ms(),  # noqa: SLF001
+            "run_id": str((yaml.safe_load((run_root / "run.yaml").read_text(encoding="utf-8")) or {}).get("run_id", "")),
+            "session_id": payload["session_id"],
+            "agent_id": "team_lead",
+            "event_type": "quality_check",
+            "status": "pass" if payload["status"] == "passed" else "fail",
+            "duration_ms": 0,
+            "refs": [],
+            "payload": {"validator": "run_compliance_audit", "summary": f"run compliance audit {payload['status']}"},
+        },
     )
+    module._dump_yaml(run_root / "artifacts" / "run_compliance.yaml", payload)  # noqa: SLF001
+    stdout = yaml.safe_dump(payload, allow_unicode=True, sort_keys=False)
+    return _ProcResult(0 if payload["status"] == "passed" else 1, stdout, "")
 
 
 class RunComplianceAuditTests(unittest.TestCase):
@@ -520,7 +604,7 @@ class RunComplianceAuditTests(unittest.TestCase):
         root = self._temp_root()
         _seed_base(root)
         _seed_common_session(root, "sess_fixture_001", "run_01")
-        run_root = _seed_run(root, "case_001", "run_01", "codex", "concurrent_team")
+        run_root = _seed_run(root, "case_001", "run_01", "codex", "staged_handoff")
 
         proc = _run_audit(root, "codex", run_root)
         self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
@@ -613,6 +697,51 @@ class RunComplianceAuditTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
         artifact = yaml.safe_load((run_root / "artifacts" / "run_compliance.yaml").read_text(encoding="utf-8"))
         self.assertEqual(artifact["status"], "failed")
+
+    def test_missing_intent_gate_fails(self) -> None:
+        root = self._temp_root()
+        _seed_base(root)
+        _seed_common_session(root, "sess_fixture_001", "run_01")
+        run_root = _seed_run(root, "case_001", "run_01", "code-buddy", "concurrent_team")
+
+        payload = yaml.safe_load((run_root / "notes" / "hypothesis_board.yaml").read_text(encoding="utf-8"))
+        payload["hypothesis_board"].pop("intent_gate", None)
+        _write(run_root / "notes" / "hypothesis_board.yaml", yaml.safe_dump(payload, sort_keys=False, allow_unicode=True))
+
+        proc = _run_audit(root, "code-buddy", run_root)
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+
+    def test_non_debugger_intent_gate_fails(self) -> None:
+        root = self._temp_root()
+        _seed_base(root)
+        _seed_common_session(root, "sess_fixture_001", "run_01")
+        run_root = _seed_run(
+            root,
+            "case_001",
+            "run_01",
+            "code-buddy",
+            "concurrent_team",
+            intent_gate_override={"decision": "analyst", "redirect_target": "rdc-analyst"},
+        )
+
+        proc = _run_audit(root, "code-buddy", run_root)
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+
+    def test_redirect_target_must_be_empty_for_debugger_run(self) -> None:
+        root = self._temp_root()
+        _seed_base(root)
+        _seed_common_session(root, "sess_fixture_001", "run_01")
+        run_root = _seed_run(
+            root,
+            "case_001",
+            "run_01",
+            "code-buddy",
+            "concurrent_team",
+            intent_gate_override={"redirect_target": "rdc-analyst"},
+        )
+
+        proc = _run_audit(root, "code-buddy", run_root)
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
 
     def test_repeated_candidate_updates_existing_proposal(self) -> None:
         root = self._temp_root()

@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import importlib.util
 import json
@@ -46,7 +46,7 @@ class BindingValidationTests(unittest.TestCase):
                 "platforms/codex/AGENTS.md",
                 "platforms/codex/.codex/config.toml",
                 "platforms/codex/.codex/agents/team_lead.toml",
-                "platforms/codex/.agents/skills/renderdoc-rdc-gpu-debug/SKILL.md",
+                "platforms/codex/.agents/skills/rdc-debugger/SKILL.md",
             ):
                 _write(root / rel, "ok\n")
 
@@ -80,7 +80,7 @@ class BindingValidationTests(unittest.TestCase):
                                     "platforms/codex/AGENTS.md",
                                     "platforms/codex/.codex/config.toml",
                                     "platforms/codex/.codex/agents/team_lead.toml",
-                                    "platforms/codex/.agents/skills/renderdoc-rdc-gpu-debug/SKILL.md",
+                                    "platforms/codex/.agents/skills/rdc-debugger/SKILL.md",
                                 ]
                             }
                         }

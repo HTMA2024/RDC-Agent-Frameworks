@@ -2,7 +2,7 @@
 
 ## 目标
 
-在低能力宿主中，用 workflow 方式完成 RenderDoc/RDC GPU Debug 的最小闭环。正常任务 intake 仍由 `team_lead` / orchestrator 语义承担。
+在低能力宿主中，用 workflow 方式完成 RenderDoc/RDC GPU Debug 的最小闭环。正常用户入口仍由 `rdc-debugger` 承担，正式 intake normalization 则由 `team_lead` / orchestrator 语义承担。
 
 ## 阶段
 

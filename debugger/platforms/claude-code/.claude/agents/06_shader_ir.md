@@ -1,4 +1,4 @@
----
+﻿---
 name: shader-ir
 description: "Internal specialist for shader source, SPIR-V or IR evidence, and suspicious expression fingerprints. Use when a first_bad_event is bound to shader execution."
 disallowedTools: Bash, Agent
@@ -18,7 +18,7 @@ model: "sonnet"
 1. ../../AGENTS.md
 2. ../../common/AGENT_CORE.md
 3. ../../common/agents/06_shader_ir.md
-4. ../../common/skills/renderdoc-rdc-gpu-debug/SKILL.md
+4. ../../common/skills/rdc-debugger/SKILL.md
 5. ../../common/skills/shader-ir/SKILL.md
 
 未先将顶层 `debugger/common/` 拷入当前平台根目录的 `common/` 之前，不允许在宿主中使用当前平台模板。

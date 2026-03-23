@@ -7,7 +7,7 @@
 
 当前目录是 Claude Code 的 platform-local 模板。Agent 的目标是使用 RenderDoc/RDC platform tools 调试 GPU 渲染问题。
 
-当前项目的正式用户入口固定为 `.claude/settings.json` 中的 session-wide `team-lead` agent；它对应 shared role `team_lead`。正常用户请求不得从通用主线程临时拼装 prompt-only Team Lead，也不应绕过 `team-lead` 直接把 specialist 当正式入口。
+当前项目的 public main skill 是 `.claude/skills/rdc-debugger/`。若 `.claude/settings.json` 仍保留 session-wide `team-lead` agent，它只承担 host bootstrap / orchestrator 语义；正常用户请求不应绕过 `rdc-debugger` 直接把 `team_lead` 或 specialist 当正式入口。
 
 Claude Code 平台上的 live RenderDoc 访问统一走已配置的 MCP server；不要把 `python ...run_cli.py` 一类 Bash 包装视为正式入口。
 

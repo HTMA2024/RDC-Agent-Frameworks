@@ -9,7 +9,7 @@
                      "capture"
                  ],
     "hooks":  "./hooks/hooks.json",
-    "name":  "renderdoc-rdc-gpu-debug",
+    "name":  "rdc-debugger",
     "description":  "Use RenderDoc/RDC platform tools to debug GPU rendering captures through platform-local agents, skills, hooks, and MCP.",
     "author":  {
                    "name":  "RenderDoc/RDC GPU Debug"

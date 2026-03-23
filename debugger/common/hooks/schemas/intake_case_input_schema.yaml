@@ -40,7 +40,7 @@ capture_source:
 reference_contract:
   source_kind_allowed: [capture_baseline, external_image, design_spec, mixed]
   verification_mode_allowed: [pixel_value_check, device_parity, regression_check, visual_comparison]
-  source_ref_prefix_allowed: [capture:, reference:]
+  source_ref_prefix_allowed: ["capture:", "reference:"]
   acceptance_required:
     - fallback_only
   acceptance_optional_numeric:

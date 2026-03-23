@@ -4,6 +4,25 @@
 
 目标不是规定用户必须按某种语言风格提问，而是要求任何进入调试链的输入，最终都必须被 `team_lead` 规范化为同一个 `case_input.yaml`。
 
+`rdc-debugger` 负责在 `team_lead` 之前做 preflight 与补料；`team_lead` 只在 handoff 条件满足后接手正式 intake 规范化。
+
+## 0. Framework Intent Gate
+
+所有请求在进入 debugger-specific preflight、capture intake、case/run 初始化之前，必须先由 `rdc-debugger` 做 `intent_gate`。
+
+固定规则：
+
+- `rdc-debugger` 是唯一 framework classifier。
+- A/B 可能只是 debugger 的证据方法，不自动等于 analyst。
+- misroute 必须 reject + redirect，不自动代转。
+- ambiguity 允许多轮澄清，且多轮期间不创建 case/run。
+
+固定边界：
+
+- 主完成问题是“哪里不同”，且没有 root-cause / fix-verification 目标：转 `rdc-analyst`
+- 主完成问题是性能、预算、瓶颈、收益：转 `rdc-optimizer`
+- A/B 只是为了证明 bug 原因或 fix 是否成立：仍可属于 `debugger`
+
 ## 1. 双层模型
 
 - 用户层：七段式 prompt
@@ -21,6 +40,8 @@
 硬规则：
 
 - 未拿到至少一份异常 `.rdc` 前，不得创建 `case_input.yaml`
+- 未拿到至少一份异常 `.rdc` 前，`rdc-debugger` 只能在当前会话 / 主面板中维护补料状态，不得创建 case/run 或 `hypothesis_board.yaml`
+- `intent_gate` 在 run 创建前只存在于当前会话；只有 `decision=debugger` 且 run 已创建后，才把摘要写进 `hypothesis_board.yaml`
 - 七段式 prompt 可以省略部分说明，但 `team_lead` 必须把缺失项显式归一化为 `unknown`、`[]` 或模式级阻断错误
 - `case_input.yaml` 只能在 capture intake 成功后写入 `../workspace/cases/<case_id>/`
 

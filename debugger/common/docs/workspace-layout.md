@@ -158,3 +158,5 @@ workspace/
 - investigators 只写 `workspace_notes`
 - `skeptic_agent` 只写 `session_signoff`
 - `curator_agent` 写 `workspace_reports`、`session_artifacts` 与 `knowledge_library`
+
+`notes/hypothesis_board.yaml` 既承担 orchestration 控制状态，也承担 run 创建后的 panel/progress 结构化状态源；但在 `.rdc` 缺失前不得预先创建。

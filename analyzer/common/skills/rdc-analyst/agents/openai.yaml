@@ -1,0 +1,4 @@
+interface:
+  display_name: "RDC Analyst"
+  short_description: "Capture分析与重建主入口"
+  default_prompt: "Use $rdc-analyst to intake a capture analysis request and structure it for the analyzer framework."

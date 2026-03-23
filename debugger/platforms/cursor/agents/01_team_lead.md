@@ -1,4 +1,4 @@
----
+﻿---
 agent_id: "team_lead"
 category: "orchestrator"
 model: "opus-4.6"
@@ -19,14 +19,14 @@ delegates_to:
 
 本文件只负责宿主入口与角色元数据；共享正文统一从当前平台根目录的 `common/` 读取。
 
-该角色是当前 framework 的唯一正式用户入口。正常用户请求必须从 `team_lead` 发起。
+该角色只负责 orchestration，不是 public main skill。正常用户请求必须先从 `rdc-debugger` 发起，再由它提交给 `team_lead`。
 
 按顺序阅读：
 
 1. ../AGENTS.md
 2. ../common/AGENT_CORE.md
 3. ../common/agents/01_team_lead.md
-4. ../common/skills/renderdoc-rdc-gpu-debug/SKILL.md
+4. ../common/skills/rdc-debugger/SKILL.md
 5. ../common/skills/team-lead-orchestration/SKILL.md
 
 未先将顶层 `debugger/common/` 拷入当前平台根目录的 `common/` 之前，不允许在宿主中使用当前平台模板。

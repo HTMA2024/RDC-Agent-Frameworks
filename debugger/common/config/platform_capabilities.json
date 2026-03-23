@@ -48,7 +48,7 @@
         "platforms/code-buddy/.mcp.json",
         "platforms/code-buddy/hooks/hooks.json",
         "platforms/code-buddy/agents/01_team_lead.md",
-        "platforms/code-buddy/skills/renderdoc-rdc-gpu-debug/SKILL.md"
+        "platforms/code-buddy/skills/rdc-debugger/SKILL.md"
       ]
     },
     "claude-code": {
@@ -62,7 +62,7 @@
         },
         "skills": {
           "supported": true,
-          "rendered": "shared-entry"
+          "rendered": "native"
         },
         "hooks": {
           "supported": true,
@@ -89,7 +89,8 @@
         "platforms/claude-code/AGENTS.md",
         "platforms/claude-code/.claude/settings.json",
         "platforms/claude-code/.claude/CLAUDE.md",
-        "platforms/claude-code/.claude/agents/01_team_lead.md"
+        "platforms/claude-code/.claude/agents/01_team_lead.md",
+        "platforms/claude-code/.claude/skills/rdc-debugger/SKILL.md"
       ]
     },
     "copilot-cli": {
@@ -132,7 +133,7 @@
         "platforms/copilot-cli/.mcp.json",
         "platforms/copilot-cli/hooks/hooks.json",
         "platforms/copilot-cli/agents/01_team_lead.agent.md",
-        "platforms/copilot-cli/skills/renderdoc-rdc-gpu-debug/SKILL.md"
+        "platforms/copilot-cli/skills/rdc-debugger/SKILL.md"
       ]
     },
     "copilot-ide": {
@@ -174,7 +175,7 @@
         "platforms/copilot-ide/agent-plugin.json",
         "platforms/copilot-ide/.github/mcp.json",
         "platforms/copilot-ide/.github/agents/orchestrator.md",
-        "platforms/copilot-ide/.github/skills/renderdoc-rdc-gpu-debug/SKILL.md"
+        "platforms/copilot-ide/.github/skills/rdc-debugger/SKILL.md"
       ]
     },
     "claude-desktop": {
@@ -187,8 +188,8 @@
           "rendered": "not-supported"
         },
         "skills": {
-          "supported": false,
-          "rendered": "not-supported"
+          "supported": true,
+          "rendered": "documented-wrapper"
         },
         "hooks": {
           "supported": false,
@@ -214,7 +215,8 @@
         "platforms/claude-desktop/README.md",
         "platforms/claude-desktop/AGENTS.md",
         "platforms/claude-desktop/claude_desktop_config.json",
-        "platforms/claude-desktop/references/entrypoints.md"
+        "platforms/claude-desktop/references/entrypoints.md",
+        "platforms/claude-desktop/skills/rdc-debugger/SKILL.md"
       ]
     },
     "manus": {
@@ -227,8 +229,8 @@
           "rendered": "workflow-only"
         },
         "skills": {
-          "supported": false,
-          "rendered": "not-supported"
+          "supported": true,
+          "rendered": "workflow-wrapper"
         },
         "hooks": {
           "supported": false,
@@ -254,7 +256,8 @@
         "platforms/manus/README.md",
         "platforms/manus/AGENTS.md",
         "platforms/manus/references/entrypoints.md",
-        "platforms/manus/workflows/00_debug_workflow.md"
+        "platforms/manus/workflows/00_debug_workflow.md",
+        "platforms/manus/skills/rdc-debugger/SKILL.md"
       ]
     },
     "codex": {
@@ -296,7 +299,7 @@
         "platforms/codex/AGENTS.md",
         "platforms/codex/.codex/config.toml",
         "platforms/codex/.codex/agents/team_lead.toml",
-        "platforms/codex/.agents/skills/renderdoc-rdc-gpu-debug/SKILL.md"
+        "platforms/codex/.agents/skills/rdc-debugger/SKILL.md"
       ]
     },
     "cursor": {
@@ -338,7 +341,7 @@
         "platforms/cursor/.cursorrules",
         "platforms/cursor/.cursor/mcp.json",
         "platforms/cursor/agents/01_team_lead.md",
-        "platforms/cursor/skills/renderdoc-rdc-gpu-debug/SKILL.md",
+        "platforms/cursor/skills/rdc-debugger/SKILL.md",
         "platforms/cursor/hooks/hooks.json"
       ]
     }

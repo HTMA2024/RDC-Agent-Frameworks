@@ -1,4 +1,4 @@
-# Cursor Workspace Instructions（工作区约束）
+﻿# Cursor Workspace Instructions（工作区约束）
 
 当前目录是 Cursor 的 platform-local 模板。所有角色在进入 role-specific 行为前，都必须先服从本文件与共享 `common/` 约束。
 
@@ -23,14 +23,14 @@
 
 1. common/AGENT_CORE.md
 2. common/config/platform_adapter.json
-3. common/skills/renderdoc-rdc-gpu-debug/SKILL.md
+3. common/skills/rdc-debugger/SKILL.md
 4. common/docs/platform-capability-model.md
 5. common/docs/model-routing.md
 
 强制规则：
 
-- 正常用户入口只有 `team_lead`
-- 其他 specialist 默认是 internal/debug-only，由 `team_lead` 决定是否分派
+- 正常用户入口只有 `rdc-debugger`
+- `team_lead` 与其他 specialist 默认是 internal/debug-only，由 `rdc-debugger` 完成用户侧入口与 handoff
 - 用户未提交 `.rdc` 时，必须以 `BLOCKED_MISSING_CAPTURE` 停止，不得初始化 case/run 或继续做 debug、investigation、tool planning
 
 未先将 `debugger/common/` 整包覆盖到平台根 `common/`、且将 RDC-Agent-Tools 整包覆盖到平台根 `tools/` 之前，不允许在宿主中使用当前平台模板。

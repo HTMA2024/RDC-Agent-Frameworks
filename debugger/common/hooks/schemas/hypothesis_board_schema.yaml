@@ -1,0 +1,102 @@
+schema_version: "1"
+
+description: "Debugger hypothesis_board.yaml panel and orchestration schema"
+
+required_root:
+  - hypothesis_board
+
+hypothesis_board:
+  required_fields:
+    - session_id
+    - entry_skill
+    - user_goal
+    - intake_state
+    - current_phase
+    - current_task
+    - active_owner
+    - pending_requirements
+    - blocking_issues
+    - progress_summary
+    - next_actions
+    - last_updated
+    - intent_gate
+    - hypotheses
+  entry_skill_allowed:
+    - rdc-debugger
+  intake_state_allowed:
+    - handoff_ready
+    - triage
+    - investigation
+    - validation
+    - reporting
+    - blocked
+    - completed
+  current_phase_allowed:
+    - intake
+    - triage
+    - investigation
+    - validation
+    - reporting
+    - blocked
+    - completed
+  intent_gate:
+    required_fields:
+      - classifier_version
+      - judged_by
+      - clarification_rounds
+      - normalized_user_goal
+      - primary_completion_question
+      - dominant_operation
+      - requested_artifact
+      - ab_role
+      - scores
+      - decision
+      - confidence
+      - hard_signals
+      - rationale
+      - redirect_target
+    judged_by_allowed:
+      - rdc-debugger
+    dominant_operation_allowed:
+      - diagnose
+      - verify_fix
+      - compare
+      - reconstruct
+      - attribute_perf
+      - experiment
+      - unknown
+    requested_artifact_allowed:
+      - debugger_verdict
+      - fix_verification
+      - diff_report
+      - pass_graph
+      - knowledge_report
+      - frame_breakdown
+      - experiment_report
+      - unknown
+    ab_role_allowed:
+      - none
+      - evidence_method
+      - primary_object
+    decision_allowed:
+      - debugger
+      - analyst
+      - optimizer
+      - out_of_scope_or_ambiguous
+    confidence_allowed:
+      - high
+      - medium
+      - low
+    redirect_target_allowed:
+      - ""
+      - rdc-analyst
+      - rdc-optimizer
+    score_fields:
+      - debugger
+      - analyst
+      - optimizer
+    hard_signal_fields:
+      - debugger_positive
+      - analyst_positive
+      - optimizer_positive
+      - disqualifiers

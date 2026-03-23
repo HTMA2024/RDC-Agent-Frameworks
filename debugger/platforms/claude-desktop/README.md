@@ -4,7 +4,7 @@
 
 入口规则：
 
-- 当前宿主不支持 custom agents、native skills 与 native hooks。
+- 当前宿主不支持 custom agents 与 native hooks，但当前模板仍提供 wrapper skills 来统一入口语义。
 - 当前宿主默认通过 `MCP` 进入平台真相，不得把 workflow brief 当成 live team handoff。
 - 用户提交 `.rdc` 后，只能按 `workflow_stage` 串行推进；若需要并发 live owners、per-agent model control 或 experimental remote rehydrate，必须切回更高能力平台。
 
@@ -17,7 +17,7 @@
 5. 正式发起 debug 前，用户必须在当前对话提交至少一份 `.rdc`。
 6. 使用当前平台根目录同级的 `workspace/` 作为运行区。
 7. 完成覆盖后，再在对应宿主中打开当前平台根目录。
-8. 正常用户请求从 `team_lead` 发起；其他 specialist 默认是 internal/debug-only。
+8. 正常用户请求从 `rdc-debugger` 发起；`team_lead` 与其他 specialist 默认是 internal/debug-only。
 
 约束：
 

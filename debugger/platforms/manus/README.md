@@ -7,7 +7,7 @@
 - 当前宿主按 workflow package 运行，不提供 native `MCP` 入口。
 - 任务开始时，Agent 必须向用户说明当前采用的是 `workflow_stage` 串行流程，而不是 live team handoff。
 - 当前平台只允许消费已经准备好的共享文档、workspace 与 artifact contract；不得假设宿主内存在可直接调用的 `MCP` server。
-- 当前宿主不支持 custom agents、native skills、native hooks 与 per-agent model control。
+- 当前宿主不支持 custom agents、native hooks 与 per-agent model control，但当前模板仍提供 wrapper skills 来统一入口语义。
 
 使用方式：
 
@@ -18,7 +18,7 @@
 5. 正式发起 debug 前，用户必须在当前对话提交至少一份 `.rdc`。
 6. 使用当前平台根目录同级的 `workspace/` 作为运行区。
 7. 完成覆盖后，再在对应宿主中打开当前平台根目录。
-8. 正常用户请求从 `team_lead` 发起；其他 specialist 默认是 internal/debug-only。
+8. 正常用户请求从 `rdc-debugger` 发起；`team_lead` 与其他 specialist 默认是 internal/debug-only。
 
 约束：
 

@@ -23,15 +23,15 @@
 
 1. common/AGENT_CORE.md
 2. common/config/platform_adapter.json
-3. common/skills/renderdoc-rdc-gpu-debug/SKILL.md
+3. common/skills/rdc-debugger/SKILL.md
 4. common/docs/platform-capability-model.md
 5. common/docs/model-routing.md
 
 强制规则：
 
-- 当前平台的正式用户入口由 `.claude/settings.json` 中的 `agent: team-lead` 固定；不要在通用主线程中临时拼装 prompt-only Team Lead。
-- 正常用户入口只有 `team_lead`
-- 其他 specialist 默认是 internal/debug-only，由 `team_lead` 决定是否分派
+- `.claude/settings.json` 中若仍保留 `agent: team-lead`，它只承担 host bootstrap / orchestrator 语义；不要把它当 public main skill。
+- 正常用户入口只有 `rdc-debugger`
+- `team_lead` 与其他 specialist 默认是 internal/debug-only，由 `rdc-debugger` 完成用户侧入口与 handoff
 - 用户未提交 `.rdc` 时，必须以 `BLOCKED_MISSING_CAPTURE` 停止，不得初始化 case/run 或继续做 debug、investigation、tool planning
 
 未先将 `debugger/common/` 整包覆盖到平台根 `common/`、且将 RDC-Agent-Tools 整包覆盖到平台根 `tools/` 之前，不允许在宿主中使用当前平台模板。

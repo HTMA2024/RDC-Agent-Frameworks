@@ -35,7 +35,7 @@
 
 未先将 `debugger/common/` 整包覆盖到平台根 `common/`、且将 RDC-Agent-Tools 整包覆盖到平台根 `tools/` 之前，不允许在宿主中使用当前平台模板。
 
-运行时工作区固定为：`../workspace`
+运行时工作区固定为平台根目录下的 `workspace/`
 - 当前宿主按 `workflow_stage` 降级运行；最终仍必须生成 `artifacts/run_compliance.yaml` 才算合规结案。
 - 不得在该宿主上模拟实时 multi-agent handoff。
 - 当前平台只允许 `MCP` 作为工具入口，不允许尝试 `CLI`。

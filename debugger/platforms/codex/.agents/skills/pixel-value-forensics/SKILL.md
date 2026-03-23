@@ -6,9 +6,9 @@
 
 先阅读：
 
-1. ../../../common/skills/rdc-debugger/SKILL.md
-2. ../../../common/skills/pixel-value-forensics/SKILL.md
-3. ../../../common/config/platform_capabilities.json
+1. common/skills/rdc-debugger/SKILL.md
+2. common/skills/pixel-value-forensics/SKILL.md
+3. common/config/platform_capabilities.json
 
 未先将顶层 `debugger/common/` 拷入当前平台根目录的 `common/` 之前，不允许在宿主中使用当前平台模板。
-运行时 case/run 现场与第二层报告统一写入：`../workspace`
+运行时 case/run 现场与第二层报告统一写入平台根目录下的 `workspace/`

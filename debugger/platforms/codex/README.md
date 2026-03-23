@@ -17,7 +17,7 @@
 3. 确认 `tools/` 下存在 `validation.required_paths` 列出的必需文件。
 4. 运行 `python common/config/validate_binding.py --strict`，确认 package-local `tools/`、snapshot、宿主入口文件与共享文档全部对齐。
 5. 正式发起 debug 前，用户必须在当前对话提交至少一份 `.rdc`。
-6. 使用当前平台根目录同级的 `workspace/` 作为运行区。
+6. 使用当前平台根目录下、与 `common/` 和 `tools/` 并列的 `workspace/` 作为运行区。
 7. 完成覆盖后，打开当前目录作为 Codex workspace root。
 8. 正常用户请求从 `rdc-debugger` 发起；`team_lead` 与其他 specialist 默认是 internal/debug-only。
 9. `AGENTS.md`、`.agents/skills/`、`.codex/config.toml` 与 `.codex/agents/*.toml` 只允许引用当前平台根目录的 common/。

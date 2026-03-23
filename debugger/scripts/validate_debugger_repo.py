@@ -152,6 +152,43 @@ def _role_manifest_findings(root: Path) -> list[str]:
     return findings
 
 
+def _platform_wrapper_path_findings(root: Path) -> list[str]:
+    findings: list[str] = []
+    platform_root = root / "platforms"
+    text_exts = {".md", ".txt", ".json", ".toml", ".yaml", ".yml"}
+    forbidden_markers = (
+        "../workspace",
+        "../../workspace",
+        "../../../workspace",
+        "../common/",
+        "../../common/",
+        "../../../common/",
+        "../AGENTS.md",
+        "../../AGENTS.md",
+        "../../../AGENTS.md",
+    )
+
+    for path in platform_root.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in text_exts:
+            continue
+        text = path.read_text(encoding="utf-8-sig")
+        for lineno, line in enumerate(text.splitlines(), 1):
+            stripped = line.strip()
+            if stripped.startswith("@"):
+                continue
+            for marker in forbidden_markers:
+                if marker in line:
+                    findings.append(f"{path}:{lineno}: platform wrapper must not use upward-relative shared path '{marker}'")
+
+    cursor_rules = (platform_root / "cursor" / ".cursorrules").read_text(encoding="utf-8-sig")
+    if "正常用户请求只能从 `team_lead` 进入" in cursor_rules:
+        findings.append("cursor/.cursorrules must not declare team_lead as the normal user entry")
+    if "rdc-debugger" not in cursor_rules:
+        findings.append("cursor/.cursorrules must declare rdc-debugger as the normal user entry")
+
+    return findings
+
+
 def _doc_contract_findings(root: Path) -> list[str]:
     findings: list[str] = []
     matrix = (root / "common" / "docs" / "platform-capability-matrix.md").read_text(encoding="utf-8-sig")
@@ -706,6 +743,7 @@ def main() -> int:
     findings.extend(_intake_contract_findings(root))
     findings.extend(_model_routing_findings(root))
     findings.extend(_role_manifest_findings(root))
+    findings.extend(_platform_wrapper_path_findings(root))
     findings.extend(_doc_contract_findings(root))
     findings.extend(_claude_settings_findings(root))
     findings.extend(_claude_code_agent_findings(root))

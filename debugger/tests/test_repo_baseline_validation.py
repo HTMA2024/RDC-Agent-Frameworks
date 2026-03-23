@@ -26,6 +26,14 @@ class RepoBaselineValidationTests(unittest.TestCase):
         findings = validator._doc_contract_findings(DEBUGGER_ROOT)
         self.assertEqual(findings, [])
 
+    def test_platform_wrappers_do_not_use_upward_relative_shared_paths(self) -> None:
+        validator = _load_module(
+            DEBUGGER_ROOT / "scripts" / "validate_debugger_repo.py",
+            "validate_debugger_repo_platform_paths_module",
+        )
+        findings = validator._platform_wrapper_path_findings(DEBUGGER_ROOT)
+        self.assertEqual(findings, [])
+
     def test_entry_mode_contract_is_documented_in_matrix(self) -> None:
         text = (DEBUGGER_ROOT / "common" / "docs" / "platform-capability-matrix.md").read_text(encoding="utf-8-sig")
         self.assertIn("Default Entry", text)
@@ -70,6 +78,11 @@ class RepoBaselineValidationTests(unittest.TestCase):
             self.assertIsInstance(entries, list, event_name)
             for entry in entries:
                 self.assertIsInstance(entry.get("matcher"), str, f"{event_name} matcher must be string")
+
+    def test_cursor_rules_use_rdc_debugger_as_normal_user_entry(self) -> None:
+        text = (DEBUGGER_ROOT / "platforms" / "cursor" / ".cursorrules").read_text(encoding="utf-8-sig")
+        self.assertNotIn("正常用户请求只能从 `team_lead` 进入", text)
+        self.assertIn("`rdc-debugger`", text)
 
     def test_codex_coordination_mode_is_consistent(self) -> None:
         compliance = json.loads(

@@ -11,6 +11,6 @@
 约束：
 
 - 这里不是共享真相；共享真相仍由同级 `common/` 提供。
-- `common/` 中的 shared prompt / skill / docs 应通过 `../workspace` 引用当前目录。
+- 平台包装层中涉及运行区时，应统一把它表述为当前平台根目录下的 `workspace/`。
 - 原始 `.rdc` 只允许落在 `cases/<case_id>/inputs/captures/`，不得落在 `runs/<run_id>/`
 - 模板仓库只保留占位骨架，不提交真实运行产物。

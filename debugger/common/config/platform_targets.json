@@ -83,6 +83,7 @@
       "entrypoint_file": "references/entrypoints.md",
       "native_surfaces": [
         "skills",
+        "mcp",
         "workflow"
       ]
     },

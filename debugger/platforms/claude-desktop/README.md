@@ -5,7 +5,8 @@
 入口规则：
 
 - 当前宿主不支持 custom agents 与 native hooks，但当前模板仍提供 wrapper skills 来统一入口语义。
-- 当前宿主默认通过 `MCP` 进入平台真相，不得把 workflow brief 当成 live team handoff。
+- 当前平台只允许通过 `MCP` 进入平台真相，不允许尝试 `CLI`。
+- 任务开始时，Agent 必须向用户说明当前采用的是 `MCP`，并先完成 MCP preflight。
 - 用户提交 `.rdc` 后，只能按 `workflow_stage` 串行推进；若需要并发 live owners、per-agent model control 或 experimental remote rehydrate，必须切回更高能力平台。
 
 使用方式：

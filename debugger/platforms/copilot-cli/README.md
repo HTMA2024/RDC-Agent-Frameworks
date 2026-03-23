@@ -2,6 +2,13 @@
 
 当前目录是 Copilot CLI 的 platform-local 模板。Agent 的目标是使用 RenderDoc/RDC platform tools 调试 GPU 渲染问题。
 
+入口规则：
+
+- 当前宿主可直接访问本地进程、文件系统与 workspace，默认采用 local-first。
+- 默认入口是 daemon-backed `CLI`；只有用户明确要求按 `MCP` 接入时，才切换到 `MCP`。
+- 任务开始时，Agent 必须向用户说明当前采用的是 `CLI` 还是 `MCP`。
+- 若用户要求 `MCP`，但宿主未配置对应 MCP server，必须直接阻断并提示配置。
+
 使用方式：
 
 1. 将仓库根目录 `debugger/common/` 整体拷贝到当前平台根目录的 `common/`，覆盖占位内容。

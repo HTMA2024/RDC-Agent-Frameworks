@@ -24,6 +24,8 @@
 ## workflow 约束
 
 - Manus 不承担 custom agents / per-agent model 的宿主能力。
+- Manus 的工具入口只允许 `MCP`；workflow stage 不得改写成 CLI-first。
+- 开始任何阶段前，必须先完成 MCP preflight；若 MCP server 未配置完成，必须立即停止。
 - `tools_root` 未配置或校验失败时必须立即停止。
 - 用户未提交 `.rdc` 时必须以 `BLOCKED_MISSING_CAPTURE` 立即停止。
 - workflow 的每一阶段都必须引用共享 artifact contract。

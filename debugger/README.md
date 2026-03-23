@@ -71,3 +71,20 @@
 - 任务开始时，Agent 必须向用户说明当前采用的入口模式；若所选入口的前置条件未满足，必须先阻断。
 - `rdc-debugger` 是当前 framework 唯一 public main skill；`team_lead` 只承担 orchestration + intake normalization。
 - snapshot 必须与 `RDC-Agent-Tools/spec/tool_catalog.json` 当前 `tool_count` 与工具集合对齐，其中 `rd.vfs.*` 只按导航层解释，`tabular/tsv` 只按 projection 支持解释。
+
+## 当前平台入口模式
+
+当前平台分组以 `common/config/platform_capabilities.json` 为唯一权威源：
+
+- 默认 `CLI`，但用户可强制切到 `MCP`
+  - `codex`
+  - `claude-code`
+  - `code-buddy`
+  - `copilot-cli`
+  - `copilot-ide`
+  - `cursor`
+- 只允许 `MCP`
+  - `claude-desktop`
+  - `manus`
+
+这里的 `CLI` / `MCP` 只表示工具入口模式，不改变各平台现有的 `concurrent_team`、`staged_handoff`、`workflow_stage` 协作上限。

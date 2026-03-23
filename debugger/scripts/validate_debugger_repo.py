@@ -161,6 +161,10 @@ def _doc_contract_findings(root: Path) -> list[str]:
     core_doc = (root / "common" / "AGENT_CORE.md").read_text(encoding="utf-8-sig")
     intake_doc = (root / "common" / "docs" / "intake" / "README.md").read_text(encoding="utf-8-sig")
     main_skill = (root / "common" / "skills" / "rdc-debugger" / "SKILL.md").read_text(encoding="utf-8-sig")
+    claude_code_readme = (root / "platforms" / "claude-code" / "README.md").read_text(encoding="utf-8-sig")
+    manus_readme = (root / "platforms" / "manus" / "README.md").read_text(encoding="utf-8-sig")
+    manus_entrypoints = (root / "platforms" / "manus" / "references" / "entrypoints.md").read_text(encoding="utf-8-sig")
+    manus_workflow = (root / "platforms" / "manus" / "workflows" / "00_debug_workflow.md").read_text(encoding="utf-8-sig")
 
     required_matrix_rows = [
         "| Code Buddy |",
@@ -178,6 +182,12 @@ def _doc_contract_findings(root: Path) -> list[str]:
 
     if "文档镜像，不是独立 SSOT" not in matrix:
         findings.append("platform-capability-matrix.md must state it is not an independent SSOT")
+    if "Default Entry" not in matrix or "Allowed Entry Modes" not in matrix:
+        findings.append("platform-capability-matrix.md must expose entry mode columns")
+    if "| Claude Code |" in matrix and "CLI, MCP" not in matrix:
+        findings.append("platform-capability-matrix.md must show CLI, MCP entry coverage")
+    if "| Manus |" in matrix and "MCP only" not in matrix:
+        findings.append("platform-capability-matrix.md must mark Manus as MCP only")
     if "唯一权威源" not in model_doc:
         findings.append("platform-capability-model.md must state JSON SSOT ownership")
     if "experimental" not in model_doc:
@@ -204,6 +214,18 @@ def _doc_contract_findings(root: Path) -> list[str]:
         findings.append("rdc-debugger skill must define reject-and-redirect behavior")
     if "多轮澄清" not in main_skill:
         findings.append("rdc-debugger skill must allow multi-round clarification before classification stabilizes")
+    if "统一走已配置的 MCP server" in claude_code_readme:
+        findings.append("claude-code README must not declare MCP as the only default path")
+
+    manus_forbidden_markers = (
+        "不提供 native `MCP` 入口",
+        "不提供 native MCP 入口",
+        "不得假设宿主侧存在可直接连接的 MCP server",
+        "MCP not supported",
+    )
+    for marker in manus_forbidden_markers:
+        if marker in manus_readme or marker in manus_entrypoints or marker in manus_workflow:
+            findings.append(f"manus docs must not contain legacy MCP denial: {marker}")
 
     return findings
 
@@ -324,6 +346,15 @@ def _compliance_findings(root: Path) -> list[str]:
             findings.append(f"missing platform_capabilities entry for {key}")
             continue
 
+        default_entry_mode = str(platform_caps.get("default_entry_mode", "")).strip()
+        allowed_entry_modes = list(platform_caps.get("allowed_entry_modes") or [])
+        if default_entry_mode not in {"cli", "mcp"}:
+            findings.append(f"{key}: default_entry_mode must be cli or mcp")
+        if not allowed_entry_modes or any(mode not in {"cli", "mcp"} for mode in allowed_entry_modes):
+            findings.append(f"{key}: allowed_entry_modes must only contain cli/mcp")
+        if default_entry_mode and default_entry_mode not in allowed_entry_modes:
+            findings.append(f"{key}: default_entry_mode must be included in allowed_entry_modes")
+
         expected_mode = str(rules.get("coordination_mode", "")).strip()
         actual_mode = str(platform_caps.get("coordination_mode", "")).strip()
         if expected_mode != actual_mode:
@@ -349,6 +380,20 @@ def _compliance_findings(root: Path) -> list[str]:
 
         if rules.get("workflow_required") and actual_mode != "workflow_stage":
             findings.append(f"{key}: workflow_required=true but coordination_mode is not workflow_stage")
+
+    expected_cli_first = {"code-buddy", "claude-code", "copilot-cli", "copilot-ide", "codex", "cursor"}
+    actual_cli_first = {
+        key for key, row in cap_platforms.items() if str(row.get("default_entry_mode", "")).strip() == "cli"
+    }
+    if actual_cli_first != expected_cli_first:
+        findings.append("platform_capabilities.json CLI-first platform set mismatch")
+
+    expected_mcp_only = {"claude-desktop", "manus"}
+    actual_mcp_only = {
+        key for key, row in cap_platforms.items() if list(row.get("allowed_entry_modes") or []) == ["mcp"]
+    }
+    if actual_mcp_only != expected_mcp_only:
+        findings.append("platform_capabilities.json MCP-only platform set mismatch")
 
     live_sessions = root / "common" / "knowledge" / "library" / "sessions"
     allowed = set(compliance["runtime_artifact_contract"]["allowed_live_library_session_entries"])

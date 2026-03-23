@@ -38,3 +38,5 @@
 运行时工作区固定为：`../workspace`
 - 当前宿主按 `workflow_stage` 降级运行；最终仍必须生成 `artifacts/run_compliance.yaml` 才算合规结案。
 - 不得在该宿主上模拟实时 multi-agent handoff。
+- 当前平台只允许 `MCP` 作为工具入口，不允许尝试 `CLI`。
+- 开始任何平台真相相关工作前，必须先完成 MCP preflight；若 MCP server 未配置完成，必须立即阻断。

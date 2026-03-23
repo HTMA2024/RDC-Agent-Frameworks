@@ -4,9 +4,11 @@
 
 入口规则：
 
-- 当前宿主按 workflow package 运行，不提供 native `MCP` 入口。
+- 当前宿主按 workflow package 运行，协作上限仍是 `workflow_stage`。
+- 当前平台只允许 `MCP` 作为工具入口，不允许尝试 `CLI`。
+- 任务开始时，Agent 必须向用户说明当前采用的是 `MCP`，并先完成 MCP preflight。
 - 任务开始时，Agent 必须向用户说明当前采用的是 `workflow_stage` 串行流程，而不是 live team handoff。
-- 当前平台只允许消费已经准备好的共享文档、workspace 与 artifact contract；不得假设宿主内存在可直接调用的 `MCP` server。
+- 当前平台只允许消费已经准备好的共享文档、workspace 与 artifact contract；若 MCP server 未配置完成，必须直接阻断。
 - 当前宿主不支持 custom agents、native hooks 与 per-agent model control，但当前模板仍提供 wrapper skills 来统一入口语义。
 
 使用方式：

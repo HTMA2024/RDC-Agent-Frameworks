@@ -25,6 +25,19 @@ framework 必须把以下三层分开理解：
 - 对可直达本地环境的宿主，framework 默认 local-first。
 - 对不能直达本地环境的宿主，framework 默认 `MCP`。
 
+当前平台落表结果固定为：
+
+- 默认 `CLI`，允许用户强制切到 `MCP`
+  - `codex`
+  - `claude-code`
+  - `code-buddy`
+  - `copilot-cli`
+  - `copilot-ide`
+  - `cursor`
+- 只允许 `MCP`
+  - `claude-desktop`
+  - `manus`
+
 ## 2. 入口声明与前置阻断
 
 进入平台真相相关工作前，Agent 必须先完成两件事：
@@ -37,6 +50,7 @@ framework 必须把以下三层分开理解：
 - local-first 路径下，如 `tools_root` 未配置或必需路径校验未通过，必须阻断。
 - `MCP` 路径下，如宿主没有配置对应 MCP server，必须阻断。
 - 阻断时不允许假设工具可用，也不允许继续编造平台能力面。
+- 对 `claude-desktop` 与 `manus`，不得尝试 `CLI` fallback；它们的工具入口固定是 `MCP`。
 
 ## 3. `context` 的真实含义
 

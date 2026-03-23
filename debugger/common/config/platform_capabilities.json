@@ -12,6 +12,11 @@
       "display_name": "Code Buddy",
       "status_label": "reference",
       "packaging": "plugin-bundle",
+      "default_entry_mode": "cli",
+      "allowed_entry_modes": [
+        "cli",
+        "mcp"
+      ],
       "capabilities": {
         "custom_agents": {
           "supported": true,
@@ -55,6 +60,11 @@
       "display_name": "Claude Code",
       "status_label": "full",
       "packaging": "project-config-plus-subagents",
+      "default_entry_mode": "cli",
+      "allowed_entry_modes": [
+        "cli",
+        "mcp"
+      ],
       "capabilities": {
         "custom_agents": {
           "supported": true,
@@ -97,6 +107,11 @@
       "display_name": "Copilot CLI",
       "status_label": "full",
       "packaging": "cli-plugin",
+      "default_entry_mode": "cli",
+      "allowed_entry_modes": [
+        "cli",
+        "mcp"
+      ],
       "capabilities": {
         "custom_agents": {
           "supported": true,
@@ -140,6 +155,11 @@
       "display_name": "Copilot IDE",
       "status_label": "full",
       "packaging": "github-agents-plus-mcp",
+      "default_entry_mode": "cli",
+      "allowed_entry_modes": [
+        "cli",
+        "mcp"
+      ],
       "capabilities": {
         "custom_agents": {
           "supported": true,
@@ -182,6 +202,10 @@
       "display_name": "Claude Desktop",
       "status_label": "degraded",
       "packaging": "desktop-mcp-config",
+      "default_entry_mode": "mcp",
+      "allowed_entry_modes": [
+        "mcp"
+      ],
       "capabilities": {
         "custom_agents": {
           "supported": false,
@@ -223,6 +247,10 @@
       "display_name": "Manus",
       "status_label": "degraded",
       "packaging": "workflow-package",
+      "default_entry_mode": "mcp",
+      "allowed_entry_modes": [
+        "mcp"
+      ],
       "capabilities": {
         "custom_agents": {
           "supported": false,
@@ -237,8 +265,8 @@
           "rendered": "not-supported"
         },
         "mcp": {
-          "supported": false,
-          "rendered": "not-supported"
+          "supported": true,
+          "rendered": "workflow-bridge"
         },
         "per_agent_model": {
           "supported": false,
@@ -264,6 +292,11 @@
       "display_name": "Codex",
       "status_label": "workspace-native",
       "packaging": "workspace-instructions-plus-role-config",
+      "default_entry_mode": "cli",
+      "allowed_entry_modes": [
+        "cli",
+        "mcp"
+      ],
       "capabilities": {
         "custom_agents": {
           "supported": true,
@@ -306,6 +339,11 @@
       "display_name": "Cursor",
       "status_label": "full",
       "packaging": "project-config-plus-rules",
+      "default_entry_mode": "cli",
+      "allowed_entry_modes": [
+        "cli",
+        "mcp"
+      ],
       "capabilities": {
         "custom_agents": {
           "supported": true,

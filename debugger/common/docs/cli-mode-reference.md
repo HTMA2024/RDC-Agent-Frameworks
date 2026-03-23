@@ -4,12 +4,24 @@
 
 本文把 `CLI` 定义为 local-first 的 daemon adapter。对能直接访问本地进程、文件系统与 daemon 的宿主，`CLI` 是默认入口之一。
 
+当前默认 `CLI` 的平台固定为：
+
+- `codex`
+- `claude-code`
+- `code-buddy`
+- `copilot-cli`
+- `copilot-ide`
+- `cursor`
+
+这些平台都允许用户显式要求切换到 `MCP`；切换后必须先完成 `MCP` preflight，再进入平台真相相关工作。
+
 ## 1. 使用原则
 
 - 先判断宿主是否能直接访问本地环境。
   - 如果能，默认 local-first，优先使用 daemon-backed `CLI`。
   - 如果不能，或用户明确要求按 `MCP` 接入，则切换到 `MCP`。
 - 任务开始时，Agent 必须向用户说明当前采用的是 `CLI` 还是 `MCP`。
+- 对默认 `CLI` 的平台，只有用户明确要求按 `MCP` 接入时，才允许切换入口模式。
 - 如果当前选择 `MCP`，但宿主没有配置对应 MCP server，必须像 `tools_root` 未配置一样直接阻断。
 - `CLI` 的业务命令都经 daemon / context 执行。
 - daemon 是长生命周期 runtime / context 持有层，不是 `CLI` 或 `MCP` 的附属模式。

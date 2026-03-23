@@ -126,6 +126,7 @@
     "manus": {
       "coordination_mode": "workflow_stage",
       "required_surfaces": [
+        "mcp",
         "workflow"
       ],
       "workflow_required": true,

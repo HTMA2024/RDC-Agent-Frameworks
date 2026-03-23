@@ -117,6 +117,34 @@ class ConfigConsistencyTests(unittest.TestCase):
             {"debugger", "analyst", "optimizer", "out_of_scope_or_ambiguous"},
         )
 
+    def test_platform_entry_modes_are_consistent(self) -> None:
+        capabilities = _read_json(DEBUGGER_ROOT / "common" / "config" / "platform_capabilities.json")
+        compliance = _read_json(DEBUGGER_ROOT / "common" / "config" / "framework_compliance.json")
+
+        platforms = capabilities.get("platforms") or {}
+        cli_first = {
+            key
+            for key, row in platforms.items()
+            if row.get("default_entry_mode") == "cli"
+        }
+        mcp_only = {
+            key
+            for key, row in platforms.items()
+            if row.get("allowed_entry_modes") == ["mcp"]
+        }
+
+        self.assertEqual(
+            cli_first,
+            {"code-buddy", "claude-code", "copilot-cli", "copilot-ide", "codex", "cursor"},
+        )
+        self.assertEqual(mcp_only, {"claude-desktop", "manus"})
+
+        for key in cli_first:
+            self.assertEqual(platforms[key].get("allowed_entry_modes"), ["cli", "mcp"])
+
+        for key in ("claude-desktop", "manus"):
+            self.assertIn("mcp", (compliance.get("platforms") or {}).get(key, {}).get("required_surfaces") or [])
+
 
 if __name__ == "__main__":
     unittest.main()

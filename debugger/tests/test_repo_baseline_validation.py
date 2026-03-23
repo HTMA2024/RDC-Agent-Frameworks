@@ -26,6 +26,15 @@ class RepoBaselineValidationTests(unittest.TestCase):
         findings = validator._doc_contract_findings(DEBUGGER_ROOT)
         self.assertEqual(findings, [])
 
+    def test_entry_mode_contract_is_documented_in_matrix(self) -> None:
+        text = (DEBUGGER_ROOT / "common" / "docs" / "platform-capability-matrix.md").read_text(encoding="utf-8-sig")
+        self.assertIn("Default Entry", text)
+        self.assertIn("Allowed Entry Modes", text)
+        self.assertIn("| Claude Code |", text)
+        self.assertIn("| Manus |", text)
+        self.assertIn("CLI, MCP", text)
+        self.assertIn("MCP only", text)
+
     def test_rdc_debugger_skill_declares_intent_gate_contract(self) -> None:
         text = (DEBUGGER_ROOT / "common" / "skills" / "rdc-debugger" / "SKILL.md").read_text(encoding="utf-8-sig")
         for marker in (

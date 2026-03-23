@@ -64,6 +64,11 @@
   - 全部角色 -> latest GPT
   - 角色差异通过 reasoning 与 verbosity 区分，而不是依赖不同模型族。
 
+补充说明：
+
+- `claude-desktop`、`manus` 的 `inherit` 只描述模型控制方式，不表示禁用 `MCP`。
+- 当前入口模式仍以 `platform_capabilities.json` 的 `default_entry_mode` / `allowed_entry_modes` 为准，其中 `manus` 是 MCP-only。
+
 ## 约束
 
 - 生成后的平台文件必须始终来自 `model_routing.json`。

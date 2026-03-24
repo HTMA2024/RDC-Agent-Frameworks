@@ -77,22 +77,24 @@
 
 ## 4. Mandatory Capture Intake
 
-所有进入 `RenderDoc/RDC GPU Debug` workflow 的任务，在开始前必须先取得至少一份用户提供的 `.rdc`。
+所有进入 `RenderDoc/RDC GPU Debug` workflow 的任务，在开始前必须先取得至少一份用户提供的、可导入的 `.rdc`。
 
 强制规则：
 
 1. `.rdc` 是第一性调试输入，不是可选附件。
-2. 未提供 `.rdc` 时，必须立即停止，不得继续做 debug / investigation / tool planning / specialist dispatch / root-cause 判断。
-3. capture 缺失时的统一阻断状态为：`BLOCKED_MISSING_CAPTURE`。
-4. 阻断期间允许的唯一动作是提示用户在当前对话补传一份或多份 `.rdc`。
-5. 不允许用截图、日志、文本描述、skill 文本、平台模板说明或模型记忆替代 `.rdc` 作为第一性调试输入。
-6. 新上传 `.rdc` 一律按 append intake 处理；不得隐式 overwrite 已有 capture。
-7. 在 capture intake 完成前，不允许初始化 `case_id`、`run_id`、`workspace_run_root` 或 `case_input.yaml`。
+2. 用户可以通过两种正式方式提供 `.rdc`：在当前对话上传，或提供宿主当前会话可访问的文件路径。
+3. 未提供可导入的 `.rdc` 时，必须立即停止，不得继续做 debug / investigation / tool planning / specialist dispatch / root-cause 判断。
+4. capture 缺失时的统一阻断状态为：`BLOCKED_MISSING_CAPTURE`。
+5. 阻断期间允许的唯一动作是提示用户上传 `.rdc`，或提供宿主当前会话可访问的文件路径。
+6. 不允许用截图、日志、文本描述、skill 文本、平台模板说明或模型记忆替代 `.rdc` 作为第一性调试输入。
+7. 新导入 `.rdc` 一律按 append intake 处理；不得隐式 overwrite 已有 capture。
+8. `team_lead` 只在 accepted intake 后初始化 `case_id`、`run_id`、`workspace_run_root`，并把 `.rdc` 导入 `inputs/captures/`。
+9. 在 capture intake 完成前，不允许初始化 `case_id`、`run_id`、`workspace_run_root` 或 `case_input.yaml`。
 
 停止时统一输出：
 
 ```text
-当前任务缺少必需的 capture 输入：本框架只接受基于 RenderDoc `.rdc` 的第一性调试。请先在当前对话中提交一份或多份 `.rdc` 文件；收到并导入 capture 前，Agent 不会继续进行 debug、调查分派或根因判断。
+当前任务缺少必需的 capture 输入：本框架只接受基于 RenderDoc `.rdc` 的第一性调试。请先提供一份或多份 `.rdc` 文件：可以在当前对话上传，或提供宿主当前会话可访问的文件路径；收到并导入 capture 前，Agent 不会继续进行 debug、调查分派或根因判断。
 ```
 
 ## 5. Mandatory Intake Normalization
@@ -287,6 +289,9 @@
 - `case` 持有原始输入池；run 只持有引用、运行现场和派生产物
 - `case_input.yaml` 只允许存在于 `case` 根
 - `inputs/captures/` 与 `inputs/references/` 分层，不得混放
+- `inputs/captures/manifest.yaml` 是 capture 导入 provenance 的唯一 SSOT；至少记录 `capture_id`、`file_name`、`capture_role`、`source`、`import_mode`、`imported_at`、`sha256`，以及 `import_mode=path` 时的 `source_path`
+- `case_input.yaml.captures[].provenance` 只描述调试语义上下文，不镜像导入路径、hash 或导入时间
+- `inputs/captures/` 保存的是导入后的原始 `.rdc`；用户不负责手工把文件预放到 case 目录
 - `runs/<run_id>/capture_refs.yaml` 必须显式记录 `capture_role` 与 provenance
 - `runs/<run_id>/artifacts/fix_verification.yaml` 是 run 级修复验证唯一权威 artifact
 - `runs/<run_id>/notes/hypothesis_board.yaml` 是 run 创建后唯一 panel/progress 结构化状态源

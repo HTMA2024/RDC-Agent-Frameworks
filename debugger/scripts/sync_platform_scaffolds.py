@@ -88,15 +88,18 @@ def workspace_placeholder_text() -> str:
 
 用途：
 
-- 存放 capture-first 的 `case_id/run_id` 级运行现场
+- 存放 accepted `rdc-debugger -> team_lead` intake 之后的 `case_id/run_id` 级运行现场
 - 承载 case 级 `inputs/captures/`、run 级 `screenshots/`、`artifacts/`、`logs/`、`notes/`
 - 承载第二层交付物 `reports/report.md` 与 `reports/visual_report.html`
 
 约束：
 
 - 这里不是共享真相；共享真相仍由同级 `common/` 提供。
+- `workspace/` 是 Agent 运行区，不要求用户手工把 `.rdc` 预放到这里。
 - 平台包装层中涉及运行区时，应统一把它表述为当前平台根目录下的 `workspace/`。
-- 原始 `.rdc` 只允许落在 `cases/<case_id>/inputs/captures/`，不得落在 `runs/<run_id>/`
+- 导入后的原始 `.rdc` 只允许落在 `cases/<case_id>/inputs/captures/`，不得落在 `runs/<run_id>/`
+- standalone `capture open` 只建立 tools-layer session state，不会创建这里的 `case/run`
+- 这里的 `case/run` 只由 accepted `rdc-debugger -> team_lead` intake 流程初始化
 - 模板仓库只保留占位骨架，不提交真实运行产物。
 """
 
@@ -132,7 +135,9 @@ cases/
 - `.rdc` 是创建 case 的硬前置条件；未提供 capture 时不得初始化 case/run
 - `case_id` 是问题实例/需求线程的稳定标识。
 - `run_id` 承担 debug version。
-- 原始 `.rdc` 只允许落在 `inputs/captures/`；run 只保留 capture 引用与派生产物。
+- 用户只负责提供 `.rdc`；accepted intake 后由 Agent 导入到 `inputs/captures/`。
+- 导入后的原始 `.rdc` 只允许落在 `inputs/captures/`；run 只保留 capture 引用与派生产物。
+- standalone `capture open` 不会创建这里的 case/run；这里只承载 accepted `rdc-debugger -> team_lead` intake 之后的 workspace state。
 - 第一层 session artifacts 仍写入同级 `common/knowledge/library/sessions/`；`workspace/` 不复制 gate 真相。
 """
 

@@ -62,6 +62,8 @@ Full `case/run` creation remains gated on accepted intake plus `team_lead`.
 
 硬规则：
 
+- 用户提供 `.rdc` 的正式方式只有两种：在当前对话上传，或提供宿主当前会话可访问的文件路径
+- accepted intake 后由 `team_lead` 创建 case/run 并把 `.rdc` 导入 `../workspace/cases/<case_id>/inputs/captures/`
 - 未拿到至少一份异常 `.rdc` 前，不得创建 `case_input.yaml`
 - 未拿到至少一份异常 `.rdc` 前，`rdc-debugger` 只能在当前会话 / 主面板中维护补料状态，不得创建 case/run 或 `hypothesis_board.yaml`
 - `intent_gate` 在 run 创建前只存在于当前会话；只有 `decision=debugger` 且 run 已创建后，才把摘要写进 `hypothesis_board.yaml`
@@ -174,9 +176,22 @@ project:
 
 硬规则：
 
-- `.rdc` 只能放在 `inputs/captures/`
+- 用户不负责手工把 `.rdc` 预放进 `workspace/`；Agent 在 accepted intake 后导入到 `inputs/captures/`
+- 导入后的原始 `.rdc` 只能放在 `inputs/captures/`
 - screenshot、golden image、设计稿、验收说明只能放在 `inputs/references/`
 - 不得把 reference 图混放进 capture 清单
+- `inputs/captures/manifest.yaml` 是导入 provenance 的唯一 SSOT，至少记录：
+  - `capture_id`
+  - `file_name`
+  - `capture_role`
+  - `source`
+  - `import_mode`
+  - `imported_at`
+  - `sha256`
+  - `source_path`（仅 `import_mode=path` 时记录）
+- 上传导入不得伪造 `source_path`；应记录等价上传来源标识
+- `case_input.yaml` 不镜像导入路径、hash 或导入时间；这些字段只保留在 capture manifest
+- `capture_refs.yaml` 只记录 run 实际采用的 capture 引用与 provenance 摘要，不回写导入源细节
 
 ## 5. 严格验证与 fallback 验证
 

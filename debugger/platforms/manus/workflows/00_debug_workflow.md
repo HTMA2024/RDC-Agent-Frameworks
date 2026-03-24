@@ -9,7 +9,7 @@
 1. `tools preflight`
  - 校验 `platform_adapter.json` 与 `tools_root`
 2. `team_lead intake`
- - 先检查用户是否已提交 `.rdc`；若缺失则以 `BLOCKED_MISSING_CAPTURE` 直接阻断
+ - 先检查用户是否已提供可导入的 `.rdc`；可在当前对话上传，或提供宿主当前会话可访问的文件路径；若缺失则以 `BLOCKED_MISSING_CAPTURE` 直接阻断
 3. `triage`
  - 仅在 capture intake 完成后，结构化现象、触发条件、可能的 SOP 入口
 4. `capture/session`
@@ -27,7 +27,7 @@
 - Manus 的工具入口只允许 `MCP`；workflow stage 不得改写成 CLI-first。
 - 开始任何阶段前，必须先完成 MCP preflight；若 MCP server 未配置完成，必须立即停止。
 - `tools_root` 未配置或校验失败时必须立即停止。
-- 用户未提交 `.rdc` 时必须以 `BLOCKED_MISSING_CAPTURE` 立即停止。
+- 用户尚未提供可导入的 `.rdc` 时必须以 `BLOCKED_MISSING_CAPTURE` 立即停止。
 - workflow 的每一阶段都必须引用共享 artifact contract。
 - `workflow_stage` 是该平台的协作上限，不模拟 team-agent 实时协作。
 - 若需要跨轮次继续调查，必须依赖可重建的 `runtime_baton`，不得凭记忆续跑 live runtime。

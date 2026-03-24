@@ -34,7 +34,7 @@
 - `team_lead` 与其他 specialist 默认是 internal/debug-only，由 `rdc-debugger` 完成用户侧入口与 handoff
 - Claude Code 默认入口是 local-first `CLI`；只有用户明确要求时才切到 `MCP`
 - `.claude/settings.json` 中预配置的 `MCP` server 只是可选接入面，不改变默认入口
-- 用户未提交 `.rdc` 时，必须以 `BLOCKED_MISSING_CAPTURE` 停止，不得初始化 case/run 或继续做 debug、investigation、tool planning
+- 用户尚未提供可导入的 `.rdc` 时，必须以 `BLOCKED_MISSING_CAPTURE` 停止，不得初始化 case/run 或继续做 debug、investigation、tool planning
 - standalone `capture open` 只建立 tools-layer session state，不会创建 framework `workspace/case/run`
 
 未先将 `debugger/common/` 整包覆盖到平台根 `common/`、且将 RDC-Agent-Tools 整包覆盖到平台根 `tools/` 之前，不允许在宿主中使用当前平台模板。

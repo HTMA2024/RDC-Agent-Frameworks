@@ -15,7 +15,7 @@
 2. 将 `RDC-Agent-Tools` 根目录整包拷贝到当前平台根目录的 `tools/`，覆盖占位内容。
 3. 确认 `tools/` 下存在 `validation.required_paths` 列出的必需文件。
 4. 运行 `python common/config/validate_binding.py --strict`，确认 package-local `tools/`、snapshot、宿主入口文件与共享文档全部对齐。
-5. 正式发起 debug 前，用户必须在当前对话提交至少一份 `.rdc`。
+5. 正式发起 debug 前，用户必须先提供至少一份 `.rdc`；可在当前对话上传，或提供宿主当前会话可访问的文件路径。accepted intake 后由 Agent 导入 `workspace/cases/<case_id>/inputs/captures/`。
 6. 使用当前平台根目录下、与 `common/` 和 `tools/` 并列的 `workspace/` 作为运行区。
 7. 完成覆盖后，再在对应宿主中打开当前平台根目录。
 8. 正常用户请求从 `.claude/skills/rdc-debugger/` 进入；若 `.claude/settings.json` 仍保留 `team-lead` bootstrap agent，它只承担 orchestration，不是 public main skill。
@@ -29,7 +29,7 @@
 - 当前工具 snapshot 必须与 `RDC-Agent-Tools` 当前 catalog 完整对齐，并覆盖 `rd.vfs.*` 导航层、扩展 `rd.session.*`、`rd.core.*` discovery/observability，以及 bounded event-tree 读取语义；其中 `tabular/tsv` 仅作为 projection 支持。
 - `.claude/settings.json` 中即使预配置了 `MCP` server，也只表示可选接入面，不改变 Claude Code 默认的 local-first `CLI` 入口。
 - Claude hooks 使用 string `matcher`；文件路径过滤由共享 hook dispatcher 读取 hook payload 后自行判断，不在 settings.json 里写 object matcher。
-- 未提供 `.rdc` 时，Agent 必须以 `BLOCKED_MISSING_CAPTURE` 直接阻断，不得初始化 case/run 或继续 triage、investigation、planning。
+- 未提供可导入的 `.rdc` 时，Agent 必须以 `BLOCKED_MISSING_CAPTURE` 直接阻断，不得初始化 case/run 或继续 triage、investigation、planning。
 - `workspace/` 预生成空骨架；真实运行产物只在被接受的 `rdc-debugger -> team_lead` intake 流程中按 case/run 写入。
 - standalone `capture open` 只建立 tools-layer session state，不会创建 framework `workspace/case/run`。
 - 维护者若重跑 scaffold，必须继续产出 platform-local `common/` 最小占位目录，不得回退到跨级引用。

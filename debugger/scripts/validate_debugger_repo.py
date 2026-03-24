@@ -199,6 +199,7 @@ def _doc_contract_findings(root: Path) -> list[str]:
     core_doc = (root / "common" / "AGENT_CORE.md").read_text(encoding="utf-8-sig")
     intake_doc = (root / "common" / "docs" / "intake" / "README.md").read_text(encoding="utf-8-sig")
     main_skill = (root / "common" / "skills" / "rdc-debugger" / "SKILL.md").read_text(encoding="utf-8-sig")
+    team_lead_doc = (root / "common" / "agents" / "01_team_lead.md").read_text(encoding="utf-8-sig")
     claude_code_readme = (root / "platforms" / "claude-code" / "README.md").read_text(encoding="utf-8-sig")
     manus_readme = (root / "platforms" / "manus" / "README.md").read_text(encoding="utf-8-sig")
     manus_entrypoints = (root / "platforms" / "manus" / "references" / "entrypoints.md").read_text(encoding="utf-8-sig")
@@ -252,8 +253,40 @@ def _doc_contract_findings(root: Path) -> list[str]:
         findings.append("rdc-debugger skill must define reject-and-redirect behavior")
     if "多轮澄清" not in main_skill:
         findings.append("rdc-debugger skill must allow multi-round clarification before classification stabilizes")
+    if "在当前对话上传" not in core_doc or "文件路径" not in core_doc:
+        findings.append("AGENT_CORE.md must allow uploaded captures and accessible file paths")
+    if "inputs/captures/manifest.yaml` 是 capture 导入 provenance 的唯一 SSOT" not in core_doc:
+        findings.append("AGENT_CORE.md must define capture manifest as the import provenance SSOT")
+    if "在当前对话上传" not in main_skill or "文件路径" not in main_skill:
+        findings.append("rdc-debugger skill must allow uploaded captures and accessible file paths")
+    if "inputs/captures/manifest.yaml` 必须作为导入 provenance 的唯一 SSOT" not in team_lead_doc:
+        findings.append("team_lead contract must define capture manifest as the import provenance SSOT")
     if "统一走已配置的 MCP server" in claude_code_readme:
         findings.append("claude-code README must not declare MCP as the only default path")
+
+    legacy_capture_markers = (
+        "当前对话提交至少一份 `.rdc`",
+        "当前对话提交一份或多份 `.rdc`",
+        "当前对话中提交一份或多份 `.rdc`",
+        "当前对话上传 `.rdc` 为准",
+        "请先在当前对话中提交一份或多份 `.rdc` 文件",
+    )
+    for path in [root / "README.md", *list((root / "common").rglob("*.md")), *list((root / "platforms").rglob("*.md"))]:
+        text = path.read_text(encoding="utf-8-sig")
+        for marker in legacy_capture_markers:
+            if marker in text:
+                findings.append(f"legacy capture intake wording must not remain in {path}: {marker}")
+    manual_prestaging_markers = (
+        "必须手工把 `.rdc` 预放",
+        "需要手工把 `.rdc` 预放",
+        "用户手工把 `.rdc` 预放到 `workspace/`",
+        "用户手工把文件预放到 `workspace/`",
+    )
+    for path in (root / "platforms").rglob("*.md"):
+        text = path.read_text(encoding="utf-8-sig")
+        for marker in manual_prestaging_markers:
+            if marker in text:
+                findings.append(f"platform docs must not require manual workspace pre-staging: {path}: {marker}")
 
     manus_forbidden_markers = (
         "不提供 native `MCP` 入口",

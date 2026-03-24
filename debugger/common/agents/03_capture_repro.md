@@ -109,6 +109,9 @@ rd.export.screenshot(session_id=..., output_path=...)
 
 - `manifest.yaml` 必须记录 `capture_role`
 - `manifest.yaml` 必须记录 `source`
+- `manifest.yaml` 必须记录 `import_mode`、`imported_at` 与 `sha256`
+- `manifest.yaml` 只在 `import_mode=path` 时记录 `source_path`；上传导入不得伪造路径
+- `manifest.yaml` 是导入 provenance 的唯一 SSOT；`case_input.yaml` 不镜像导入路径、hash 或导入时间
 - `capture_refs.yaml` 必须记录本 run 实际采用的 `anomalous / baseline / fixed`
 - 追加 `fixed` capture 时，只能 append intake，不得覆盖旧 capture
 

@@ -56,6 +56,18 @@ class RepoBaselineValidationTests(unittest.TestCase):
         ):
             self.assertIn(marker, text)
 
+    def test_capture_intake_docs_allow_upload_or_accessible_path(self) -> None:
+        core_text = (DEBUGGER_ROOT / "common" / "AGENT_CORE.md").read_text(encoding="utf-8-sig")
+        skill_text = (DEBUGGER_ROOT / "common" / "skills" / "rdc-debugger" / "SKILL.md").read_text(encoding="utf-8-sig")
+        team_lead_text = (DEBUGGER_ROOT / "common" / "agents" / "01_team_lead.md").read_text(encoding="utf-8-sig")
+
+        for text in (core_text, skill_text, team_lead_text):
+            self.assertIn("在当前对话上传", text)
+            self.assertIn("文件路径", text)
+
+        self.assertIn("inputs/captures/manifest.yaml` 是 capture 导入 provenance 的唯一 SSOT", core_text)
+        self.assertIn("inputs/captures/manifest.yaml` 必须作为导入 provenance 的唯一 SSOT", team_lead_text)
+
     def test_rdc_debugger_docs_declare_minimal_noninteractive_preflight(self) -> None:
         skill_text = (DEBUGGER_ROOT / "common" / "skills" / "rdc-debugger" / "SKILL.md").read_text(encoding="utf-8-sig")
         intake_text = (DEBUGGER_ROOT / "common" / "docs" / "intake" / "README.md").read_text(encoding="utf-8-sig")
@@ -158,7 +170,24 @@ class RepoBaselineValidationTests(unittest.TestCase):
 
         self.assertIn("standalone `capture open`", workspace_text)
         self.assertIn("accepted `rdc-debugger -> team_lead` intake", workspace_text)
+        self.assertIn("不要求用户手工把 `.rdc` 预放", workspace_text)
+        self.assertIn("导入后的原始 `.rdc`", workspace_text)
         self.assertIn("standalone `capture open`", cases_text)
+        self.assertIn("用户只负责提供 `.rdc`", cases_text)
+
+    def test_platform_docs_do_not_limit_capture_to_current_dialog_submission(self) -> None:
+        legacy_markers = (
+            "当前对话提交至少一份 `.rdc`",
+            "当前对话提交一份或多份 `.rdc`",
+            "当前对话中提交一份或多份 `.rdc`",
+            "当前对话上传 `.rdc` 为准",
+        )
+        platform_paths = list((DEBUGGER_ROOT / "platforms").rglob("README.md")) + list((DEBUGGER_ROOT / "platforms").rglob("AGENTS.md"))
+        platform_paths.append(DEBUGGER_ROOT / "platforms" / "manus" / "workflows" / "00_debug_workflow.md")
+        for path in platform_paths:
+            text = path.read_text(encoding="utf-8-sig")
+            for marker in legacy_markers:
+                self.assertNotIn(marker, text, path)
 
     def test_claude_code_agent_frontmatter_has_names_and_descriptions(self) -> None:
         manifest = json.loads((DEBUGGER_ROOT / "common" / "config" / "role_manifest.json").read_text(encoding="utf-8-sig"))

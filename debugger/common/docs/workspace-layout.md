@@ -67,7 +67,10 @@ workspace/
 
 - `.rdc` 是创建 case 的硬前置条件；未拿到 `.rdc` 前，不创建 `case_id`、`run_id`、`workspace_run_root`
 - `case_input.yaml` 只允许在 capture intake 成功后落盘
-- `inputs/captures/` 只存 replayable `.rdc`
+- `workspace/` 是 Agent 运行区，不要求用户手工把 `.rdc` 预放进 case 目录
+- `inputs/captures/` 只存导入后的 replayable `.rdc`
+- `inputs/captures/manifest.yaml` 是 capture 导入 provenance 的唯一 SSOT；至少记录 `capture_id`、`file_name`、`capture_role`、`source`、`import_mode`、`imported_at`、`sha256`，以及 `import_mode=path` 时的 `source_path`
+- `case_input.yaml.captures[].provenance` 只描述调试语义上下文，不镜像导入路径、hash 或导入时间
 - `inputs/references/` 只存 golden image、设计稿、验收说明等非 replay reference
 - `fix_verification.yaml` 是 run 级修复验证唯一权威 artifact
 - 第一层 gate artifacts 不复制到 `workspace/`；`run.yaml` 只记录引用
@@ -116,7 +119,7 @@ workspace/
 
 - 派生 deliverables 不是 source of truth
 - `case_input.yaml` 是 case 级 SSOT，不是 prose 备份
-- 不得把原始 `.rdc` 复制到 `runs/<run_id>/`
+- 不得把导入后的原始 `.rdc` 复制到 `runs/<run_id>/`
 - 不得把 reference 图片写进 capture manifest
 - 不得创造第一层不存在的新事实
 

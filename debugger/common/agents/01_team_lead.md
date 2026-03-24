@@ -26,13 +26,15 @@
 收到 `rdc-debugger` handoff 后，按以下顺序执行：
 
 ```text
-步骤 0：检查用户是否已在当前对话提交至少一份 `.rdc`
+步骤 0：检查用户是否已提供至少一份可导入的 `.rdc`（在当前对话上传，或提供宿主当前会话可访问的文件路径）
 步骤 1：若缺失 `.rdc` -> 立即输出 `BLOCKED_MISSING_CAPTURE`
 步骤 2：解析七段式输入（§ SESSION / SYMPTOM / CAPTURES / ENVIRONMENT / REFERENCE / HINTS / PROJECT）
 步骤 3：capture intake 成功后，初始化 `case_id`、`run_id`
-步骤 4：写入 `../workspace/cases/<case_id>/case_input.yaml`
-步骤 5：用 intake validator 校验 `case_input.yaml`
-步骤 6：只有 intake 通过后，才允许分派 specialist
+步骤 4：创建 case 目录，并把 `.rdc` 导入 `../workspace/cases/<case_id>/inputs/captures/`
+步骤 5：写入 `inputs/captures/manifest.yaml`
+步骤 6：写入 `../workspace/cases/<case_id>/case_input.yaml`
+步骤 7：用 intake validator 校验 `case_input.yaml`
+步骤 8：只有 intake 通过后，才允许分派 specialist
 ```
 
 硬规则：
@@ -164,8 +166,11 @@ hypothesis_board:
 硬规则：
 
 - 未拿到至少一份 `.rdc` 前，不得初始化 case/run
+- 用户不负责手工把 `.rdc` 预放进 `workspace/`；accepted intake 后由你负责导入 case 级 capture 输入池
 - `intent_gate` 必须直接继承自 `rdc-debugger` handoff；你不得重算 scores、覆盖 decision 或改写 redirect_target
 - `case.yaml` 必须维护 `active_capture_set` 与 `reference_contract_ref`
+- `inputs/captures/manifest.yaml` 必须作为导入 provenance 的唯一 SSOT，至少记录 `capture_id`、`file_name`、`capture_role`、`source`、`import_mode`、`imported_at`、`sha256`，以及 `import_mode=path` 时的 `source_path`
+- `case_input.yaml.captures[].provenance` 只记录调试语义上下文，不镜像导入路径、hash 或导入时间
 - `inputs/references/manifest.yaml` 必须记录非 replay reference 的 `reference_id`、`file_name`、`source_kind`、`imported_at`
 - `run.yaml` 必须记录 `semantic_validation_level`
 - `hypothesis_board.yaml` 只承载调度与裁决控制状态，不承载 specialist 的长篇调查正文
@@ -264,7 +269,7 @@ session_status:
   current_phase: blocked
   blocking_issues:
     - code: BLOCKED_MISSING_CAPTURE
-      message: "请先在当前对话中提交一份或多份 `.rdc` 文件。"
+      message: "请先提供一份或多份 `.rdc` 文件：可以在当前对话上传，或提供宿主当前会话可访问的文件路径。"
   next_actions: []
 ```
 

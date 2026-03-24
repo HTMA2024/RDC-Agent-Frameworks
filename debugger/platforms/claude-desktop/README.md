@@ -7,7 +7,7 @@
 - 当前宿主不支持 custom agents 与 native hooks，但当前模板仍提供 wrapper skills 来统一入口语义。
 - 当前平台只允许通过 `MCP` 进入平台真相，不允许尝试 `CLI`。
 - 任务开始时，Agent 必须向用户说明当前采用的是 `MCP`，并先完成 MCP preflight。
-- 用户提交 `.rdc` 后，只能按 `workflow_stage` 串行推进；若需要并发 live owners、per-agent model control 或 experimental remote rehydrate，必须切回更高能力平台。
+- 用户提供可导入的 `.rdc` 后，只能按 `workflow_stage` 串行推进；若需要并发 live owners、per-agent model control 或 experimental remote rehydrate，必须切回更高能力平台。
 
 使用方式：
 
@@ -15,7 +15,7 @@
 2. 将 `RDC-Agent-Tools` 根目录整包拷贝到当前平台根目录的 `tools/`，覆盖占位内容。
 3. 确认 `tools/` 下存在 `validation.required_paths` 列出的必需文件。
 4. 运行 `python common/config/validate_binding.py --strict`，确认 package-local `tools/`、snapshot、宿主入口文件与共享文档全部对齐。
-5. 正式发起 debug 前，用户必须在当前对话提交至少一份 `.rdc`。
+5. 正式发起 debug 前，用户必须先提供至少一份 `.rdc`；可在当前对话上传，或提供宿主当前会话可访问的文件路径。accepted intake 后由 Agent 导入 `workspace/cases/<case_id>/inputs/captures/`。
 6. 使用当前平台根目录下、与 `common/` 和 `tools/` 并列的 `workspace/` 作为运行区。
 7. 完成覆盖后，再在对应宿主中打开当前平台根目录。
 8. 正常用户请求从 `rdc-debugger` 发起；`team_lead` 与其他 specialist 默认是 internal/debug-only。
@@ -26,9 +26,9 @@
 - 未完成 `debugger/common/` 覆盖前，当前平台模板不可用。
 - 未完成 `debugger/common/` 覆盖、`tools/` 覆盖或 binding 校验前，Agent 必须拒绝执行依赖平台真相的工作。
 - 当前工具 snapshot 必须与 `RDC-Agent-Tools` 当前 catalog 完整对齐，并覆盖 `rd.vfs.*` 导航层、扩展 `rd.session.*`、`rd.core.*` discovery/observability，以及 bounded event-tree 读取语义；其中 `tabular/tsv` 仅作为 projection 支持。
-- 未提供 `.rdc` 时，Agent 必须以 `BLOCKED_MISSING_CAPTURE` 直接阻断，不得初始化 case/run 或继续 triage、investigation、planning。
+- 未提供可导入的 `.rdc` 时，Agent 必须以 `BLOCKED_MISSING_CAPTURE` 直接阻断，不得初始化 case/run 或继续 triage、investigation、planning。
 - `workspace/` 预生成空骨架；真实运行产物在平台使用阶段按 case/run 写入。
 - 维护者若重跑 scaffold，必须继续产出 platform-local `common/` 最小占位目录，不得回退到跨级引用。
 - 当前宿主按 `workflow_stage` 降级运行；最终仍必须生成 `artifacts/run_compliance.yaml` 才算合规结案。
 - 不得在该宿主上模拟实时 multi-agent handoff。
-- 用户侧 capture 管理仍以当前对话上传 `.rdc` 为准；平台模板只负责把导入后的 case/run 现场写入 `workspace/`。
+- 用户侧 capture intake 支持当前对话上传 `.rdc` 或提供宿主当前会话可访问的文件路径；平台模板只负责把导入后的 case/run 现场写入 `workspace/`。

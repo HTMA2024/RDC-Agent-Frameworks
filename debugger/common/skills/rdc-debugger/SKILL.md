@@ -182,7 +182,9 @@ Recommended bounded readiness output fields:
 你必须显式检查以下输入是否齐备：
 
 - 用户是否给出问题描述
-- 用户是否提交至少一份 `.rdc`
+- 用户是否已提供至少一份可导入的 `.rdc`
+  - 在当前对话上传
+  - 提供宿主当前会话可访问的文件路径
 - 用户是否提供足够的模式信息
   - `single`
   - `cross_device`
@@ -192,6 +194,7 @@ Recommended bounded readiness output fields:
 缺项时的规则：
 
 - `.rdc` 缺失时，状态必须是 `BLOCKED_MISSING_CAPTURE`
+- `.rdc` 缺失时，只允许提示用户上传 `.rdc` 或提供宿主当前会话可访问的文件路径
 - 问题描述缺失时，不允许假装已理解需求
 - 在补料阶段，不创建 `case_id`、`run_id`、`workspace_run_root`、`case_input.yaml` 或 `hypothesis_board.yaml`
 - 补料阶段的动态状态只存在于当前会话 / 主面板，不落盘到 `workspace/`
@@ -277,6 +280,7 @@ intent_gate:
 - 不在 `decision = analyst | optimizer` 时自动代转；只能拒绝并重定向
 - 不绕过 `team_lead` 直接把用户 prose prompt 发给 specialist
 - 不在没有 `.rdc` 时初始化 case/run
+- 不要求用户手工把 `.rdc` 预放进 `workspace/`
 - 不把 `team_lead` 当 public main skill 的替身
 - 不把 screenshot、日志或口头描述当成 `.rdc` 的替代品
 - 不在没有 `hypothesis_board` 的情况下伪造 run 级进度

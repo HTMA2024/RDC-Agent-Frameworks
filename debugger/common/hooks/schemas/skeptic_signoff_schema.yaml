@@ -12,7 +12,7 @@
 #
 # Hypothesis signoff convention:
 # - message_type: SKEPTIC_SIGN_OFF
-# - to: team_lead
+# - to: rdc-debugger
 # - target_hypothesis: <H-XXX>
 
 # 用于 SKEPTIC_SIGN_OFF 消息的结构验证
@@ -20,7 +20,7 @@ skeptic_signoff_schema:
   required_fields:
     - message_type          # 必须为 "SKEPTIC_SIGN_OFF"
     - from                  # 必须为 "skeptic_agent"
-    - to                    # "team_lead" 或 "curator_agent"
+    - to                    # "rdc-debugger" 或 "curator_agent"
     - target_hypothesis     # 被审查的假设 ID（如 H-001）或 "bugcard"
     - blade_review          # 六把刀审查结果列表
     - sign_off              # 签署对象，含 signed (bool) 和 declaration
@@ -47,7 +47,7 @@ skeptic_challenge_schema:
   required_fields:
     - message_type          # 必须为 "SKEPTIC_CHALLENGE"
     - from                  # 必须为 "skeptic_agent"
-    - to                    # "team_lead" 或 "curator_agent"
+    - to                    # "rdc-debugger" 或 "curator_agent"
     - target_hypothesis     # 被质疑的假设 ID（如 H-001）或 "bugcard"
     - challenges            # 质疑列表，至少一条
     - sign_off              # 签署对象，挑战时必须 signed=false

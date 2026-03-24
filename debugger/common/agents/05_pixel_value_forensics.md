@@ -1,4 +1,4 @@
-# Agent: Pixel / Value Forensics（像素取证专家）
+﻿# Agent: Pixel / Value Forensics（像素取证专家）
 
 **角色**：像素取证专家
 
@@ -101,7 +101,7 @@ rd.texture.get_region_values(session_id=<session_id>, texture_id=<RT_ID>, rect={
 □ 5. Shader Stage 已确认（VS / PS / CS 哪个阶段产生异常）
 □ 6. 若使用 screenshot / texture fallback 选点，已明确标注其用途仅为选点或回锚，不是根因裁决
 
-如有任何一项未通过 → 继续追溯，或向 Team Lead 报告 `BLOCKED_REANCHOR`。
+如有任何一项未通过 → 继续追溯，或向 RDC Debugger 报告 `BLOCKED_REANCHOR`。
 ```
 
 ---
@@ -111,7 +111,7 @@ rd.texture.get_region_values(session_id=<session_id>, texture_id=<RT_ID>, rect={
 ```yaml
 message_type: FORENSICS_RESULT
 from: pixel_forensics_agent
-to: team_lead
+to: rdc-debugger
 
 target_pixel:
   x: 512

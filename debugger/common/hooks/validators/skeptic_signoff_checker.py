@@ -133,8 +133,8 @@ def _validate_record(record: dict, idx: int | None, *, mode: str) -> tuple[list[
             issues.append(f"{prefix}from 必须为 'skeptic_agent'")
         if not _is_nonempty_str(record.get("to")):
             issues.append(f"{prefix}to 必须为非空字符串")
-        if record.get("to") not in ("team_lead", "curator_agent"):
-            issues.append(f"{prefix}to 必须为 'team_lead' 或 'curator_agent'")
+        if record.get("to") not in ("rdc-debugger", "curator_agent"):
+            issues.append(f"{prefix}to 必须为 'rdc-debugger' 或 'curator_agent'")
         if not _is_nonempty_str(record.get("target_hypothesis")):
             issues.append(f"{prefix}target_hypothesis 必须为非空字符串")
 
@@ -175,8 +175,8 @@ def _validate_record(record: dict, idx: int | None, *, mode: str) -> tuple[list[
     )
     if record.get("from") != "skeptic_agent":
         issues.append(f"{prefix}from 必须为 'skeptic_agent'")
-    if record.get("to") not in ("team_lead", "curator_agent"):
-        issues.append(f"{prefix}to 必须为 'team_lead' 或 'curator_agent'")
+    if record.get("to") not in ("rdc-debugger", "curator_agent"):
+        issues.append(f"{prefix}to 必须为 'rdc-debugger' 或 'curator_agent'")
     if not _is_nonempty_str(record.get("target_hypothesis")):
         issues.append(f"{prefix}target_hypothesis 必须为非空字符串")
 

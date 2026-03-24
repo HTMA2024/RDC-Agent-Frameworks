@@ -1,4 +1,4 @@
-# RenderDoc/RDC GPU Debug Runtime Coordination Model（运行时协作模型）
+﻿# RenderDoc/RDC GPU Debug Runtime Coordination Model（运行时协作模型）
 
 本文把 framework 的协作编排与 `rdx-tools` 的 runtime 真相拆开描述。
 
@@ -80,7 +80,7 @@ framework 只使用以下三种 `coordination_mode`：
 
 规则：
 
-- Team Lead 可以把不同专家任务分派到不同 `context/daemon`。
+- RDC Debugger 可以把不同专家任务分派到不同 `context/daemon`。
 - 每个 live investigator 自己独占一个 `context`。
 - 若任务进入 remote 路径，仍然必须降级到 `single_runtime_owner`。
 
@@ -157,7 +157,7 @@ remote 一律采用：
 ```yaml
 runtime_baton:
   coordination_mode: concurrent_team | staged_handoff | workflow_stage
-  runtime_owner: team_lead | capture_repro_agent | <agent_id>
+  runtime_owner: rdc-debugger | capture_repro_agent | <agent_id>
   context_id: "<live context id>"
   backend: local | remote
   entry_mode: cli | mcp
@@ -250,6 +250,6 @@ remote baton 的完整恢复顺序固定如下：
 
 此时必须：
 
-- 回报 Team Lead
+- 回报 RDC Debugger
 - 补充缺失 artifact / evidence
 - 或重新建立新的 anchor 与新的 baton

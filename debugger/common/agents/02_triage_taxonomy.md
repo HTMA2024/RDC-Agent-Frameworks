@@ -1,4 +1,4 @@
-# Agent: Triage & Taxonomy（症状分类专家）
+﻿# Agent: Triage & Taxonomy（症状分类专家）
 
 **角色**：症状分类专家
 
@@ -46,7 +46,7 @@ symptom_tags → symptom_to_invariants[tag] → 候选 invariant_ids
 
 ### 步骤 4：生成输出
 
-输出结构化 Triage 结果（见“输出格式”），移交 Team Lead。
+输出结构化 Triage 结果（见“输出格式”），移交 RDC Debugger。
 
 输出中必须额外给出：
 - `causal_axis`：当前问题应优先沿哪条因果链收敛
@@ -96,10 +96,10 @@ symptom_tags → symptom_to_invariants[tag] → 候选 invariant_ids
 ## 输出格式
 
 ```yaml
-# Triage 输出 — 发送给 Team Lead
+# Triage 输出 — 发送给 RDC Debugger
 message_type: TRIAGE_RESULT
 from: triage_agent
-to: team_lead
+to: rdc-debugger
 
 symptom_tags:
   - tag: white_spot

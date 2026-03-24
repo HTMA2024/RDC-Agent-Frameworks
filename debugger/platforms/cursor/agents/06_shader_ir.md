@@ -3,7 +3,7 @@ agent_id: "shader_ir"
 category: "code_analyzer"
 model: "sonnet-4.6"
 delegates_to:
- - team_lead
+ - rdc-debugger
 ---
 
 # RenderDoc/RDC Agent Wrapper（宿主入口）
@@ -12,7 +12,7 @@ delegates_to:
 
 本文件只负责宿主入口与角色元数据；共享正文统一从当前平台根目录的 `common/` 读取。
 
-该角色默认是 internal/debug-only specialist。正常用户请求应先交给 `rdc-debugger` 完成 preflight 与路由，只有调试 framework 本身时才直接使用该角色。
+该角色默认是 internal/debug-only specialist。平台启动后不会自动进入该角色；只有用户手动召唤 `rdc-debugger` 并由它完成分派时，才进入当前 role。
 
 按顺序阅读：
 

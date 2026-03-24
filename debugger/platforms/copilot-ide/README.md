@@ -19,7 +19,7 @@
 5. 正式发起 debug 前，用户必须先提供至少一份 `.rdc`；可在当前对话上传，或提供宿主当前会话可访问的文件路径。accepted intake 后由 Agent 导入 `workspace/cases/<case_id>/inputs/captures/`。
 6. 使用当前平台根目录下、与 `common/` 和 `tools/` 并列的 `workspace/` 作为运行区。
 7. 完成覆盖后，再在对应宿主中打开当前平台根目录。
-8. 正常用户请求从 `rdc-debugger` 发起；`team_lead` 与其他 specialist 默认是 internal/debug-only。
+8. 平台启动后默认保持普通对话态；只有用户手动召唤 `rdc-debugger`，才进入调试框架。除 `rdc-debugger` 之外，其他 specialist 默认都是 internal/debug-only。
 
 约束：
 

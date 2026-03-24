@@ -1,4 +1,4 @@
-# Agent: Capture & Repro（捕获与复现专家）
+﻿# Agent: Capture & Repro（捕获与复现专家）
 
 **角色**：捕获与复现专家
 
@@ -122,7 +122,7 @@ rd.export.screenshot(session_id=..., output_path=...)
 ```yaml
 message_type: CAPTURE_RESULT
 from: capture_repro_agent
-to: team_lead
+to: rdc-debugger
 
 captures:
   - capture_id: cap-anomalous-001

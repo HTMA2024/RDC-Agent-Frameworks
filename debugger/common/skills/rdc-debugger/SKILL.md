@@ -1,6 +1,6 @@
----
+﻿---
 name: rdc-debugger
-description: Public main skill for the RenderDoc/RDC GPU debugger framework. Use when the user wants defect diagnosis, root-cause analysis, regression explanation, or fix verification for a GPU rendering issue from one or more `.rdc` captures. This skill owns intent gate classification, preflight, missing-input collection, intake normalization, and the handoff into `team_lead`; it is the only framework classifier and the normal user-facing entry instead of sending users directly to specialist roles.
+description: Public main skill for the RenderDoc/RDC GPU debugger framework. Use when the user wants defect diagnosis, root-cause analysis, regression explanation, or fix verification for a GPU rendering issue from one or more `.rdc` captures. This skill owns intent gate classification, preflight, missing-input collection, intake normalization, case/run initialization, specialist dispatch, and verdict gating; it is the only framework classifier and the only normal user-facing entry.
 ---
 
 # RDC Debugger
@@ -9,15 +9,16 @@ description: Public main skill for the RenderDoc/RDC GPU debugger framework. Use
 
 你是 `debugger` framework 的 public main skill。
 
-你的职责不是直接做 specialist 调查，也不是替代 `team_lead` 做裁决；你的职责是：
+你的职责不是把任务交给另一个 orchestrator；你的职责是：
 
 1. 接住用户请求。
 2. 先做 `intent_gate`，判断这个请求是否属于 `debugger` 的存在价值。
 3. 只有在判定属于 `debugger` 后，才继续统一 preflight。
 4. 判断输入是否齐备。
 5. 在缺失时用一轮或多轮补料把任务补齐。
-6. 只有条件满足后，才把规范化任务提交给 `team_lead`。
-7. 在 case/run 已创建后，从 `hypothesis_board.yaml` 读取并持续回显当前 task/progress。
+6. 只有条件满足后，才初始化 case/run、写入 `case_input.yaml` 与 `hypothesis_board.yaml`。
+7. 直接决定 specialist 分派、阶段推进与最终质量门。
+8. 在 case/run 已创建后，从 `hypothesis_board.yaml` 读取并持续回显当前 task/progress。
 
 ## Intent Gate 独占权
 
@@ -26,7 +27,7 @@ description: Public main skill for the RenderDoc/RDC GPU debugger framework. Use
 硬规则：
 
 - 不新增 Python classifier、hook classifier 或 specialist classifier。
-- `team_lead`、`triage_agent`、`capture_repro_agent` 与其他 specialist 只读消费 `intent_gate`，不得重做打分、改写 decision 或覆盖 redirect 结论。
+- `triage_agent`、`capture_repro_agent` 与其他 specialist 只读消费 `intent_gate`，不得重做打分、改写 decision 或覆盖 redirect 结论。
 - 若 downstream 发现 `intent_gate` 与实际任务明显冲突，只能停止推进并要求回到主入口重判，不得自行改判。
 
 ## 必读顺序
@@ -37,17 +38,15 @@ description: Public main skill for the RenderDoc/RDC GPU debugger framework. Use
 4. `../../config/platform_capabilities.json`
 5. `../../docs/platform-capability-model.md`
 6. `../../docs/model-routing.md`
-7. `../team-lead-orchestration/SKILL.md`
-
 若用户明确要求 `CLI` 模式，再补读：
 
-8. `../../docs/cli-mode-reference.md`
+7. `../../docs/cli-mode-reference.md`
 
 ## Workflow
 
 ### 1. Intent Gate
 
-在任何 debugger-specific preflight、capture intake、case/run 初始化和 `team_lead` handoff 之前，先做 `intent_gate`。
+在任何 debugger-specific preflight、capture intake、case/run 初始化和 specialist 分派之前，先做 `intent_gate`。
 
 #### 1.1 第一性判断维度
 
@@ -163,7 +162,7 @@ Do not do any of the following in `minimal_non_interactive` mode:
 
 - deep analysis
 - specialist dispatch
-- `team_lead` handoff
+- `case_input.yaml` normalization
 - `case/run` creation
 - `workspace/` writes
 
@@ -201,17 +200,17 @@ Recommended bounded readiness output fields:
 
 ### 4. Handoff Gate
 
-Only after this full handoff gate is satisfied may `team_lead` initialize `workspace/case/run`.
+Only after this full handoff gate is satisfied may `rdc-debugger` initialize `workspace/case/run`.
 
-只有当以下条件同时满足时，你才可以把任务交给 `team_lead`：
+只有当以下条件同时满足时，你才可以把任务交给 `rdc-debugger`：
 
 - `intent_gate.decision = debugger`
 - preflight 通过
 - 至少有一份 `.rdc`
 - 用户目标可归一化为 `session.goal`
-- 当前问题模式可判定，或显式标为 `unknown_pending_team_lead`
+- 当前问题模式可判定，或显式标为 `unknown_pending_rdc-debugger`
 
-交给 `team_lead` 时，必须提交一个 normalized handoff，至少包含：
+交给 `rdc-debugger` 时，必须提交一个 normalized handoff，至少包含：
 
 - `user_goal`
 - `problem_summary`
@@ -249,6 +248,21 @@ intent_gate:
   redirect_target: ""
 ```
 
+### 4.1 Immediate Case/Run Initialization
+
+Only when all of the following are true may `rdc-debugger` initialize `case_id`, `run_id`, and `../workspace/cases/<case_id>/runs/<run_id>/notes/hypothesis_board.yaml`:
+
+- `intent_gate.decision = debugger`
+- preflight passed
+- `session.goal` is normalized
+- at least one importable `.rdc` is available
+
+Hard rules:
+
+- standalone tools-layer `capture open` is not sufficient
+- initialize `case_id` and `run_id` immediately after accepted intake
+- write `case_input.yaml` and `hypothesis_board.yaml` inside the accepted `rdc-debugger` flow
+
 ## Panel / Progress 规则
 
 在 capture intake 成功并创建 case/run 后，用户侧进度展示以：
@@ -278,9 +292,9 @@ intent_gate:
 - 不把 A/B diff 自动等同于 `analyst`
 - 不在 `decision != debugger` 时偷偷进入 debugger preflight / capture / handoff
 - 不在 `decision = analyst | optimizer` 时自动代转；只能拒绝并重定向
-- 不绕过 `team_lead` 直接把用户 prose prompt 发给 specialist
+- 不绕过 `rdc-debugger` 直接把用户 prose prompt 发给 specialist
 - 不在没有 `.rdc` 时初始化 case/run
 - 不要求用户手工把 `.rdc` 预放进 `workspace/`
-- 不把 `team_lead` 当 public main skill 的替身
+- 不把 `rdc-debugger` 当 public main skill 的替身
 - 不把 screenshot、日志或口头描述当成 `.rdc` 的替代品
 - 不在没有 `hypothesis_board` 的情况下伪造 run 级进度

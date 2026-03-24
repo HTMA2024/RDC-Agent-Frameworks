@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import importlib.util
 import json
@@ -63,7 +63,7 @@ class ConfigConsistencyTests(unittest.TestCase):
 
         compliance_entry = (compliance.get("entry_model") or {})
         self.assertEqual(compliance_entry.get("public_entry_skill"), "rdc-debugger")
-        self.assertEqual(compliance_entry.get("orchestration_role"), "team_lead")
+        self.assertNotIn("orchestration_role", compliance_entry)
 
     def test_validate_tool_contract_reader_reports_invalid_adapter_json(self) -> None:
         module = _load_module(DEBUGGER_ROOT / "scripts" / "validate_tool_contract.py", "validate_tool_contract_module")
@@ -94,11 +94,11 @@ class ConfigConsistencyTests(unittest.TestCase):
 
     def test_repo_validator_expected_rendered_model_supports_cursor(self) -> None:
         module = _load_module(DEBUGGER_ROOT / "scripts" / "validate_debugger_repo.py", "validate_debugger_repo_module")
-        expected = module._expected_rendered_model(DEBUGGER_ROOT, "cursor", "team_lead")
+        expected = module._expected_rendered_model(DEBUGGER_ROOT, "cursor", "triage_agent")
         self.assertIsNotNone(expected)
         path, model = expected
-        self.assertEqual(path, DEBUGGER_ROOT / "platforms" / "cursor" / "agents" / "01_team_lead.md")
-        self.assertEqual(model, "opus-4.6")
+        self.assertEqual(path, DEBUGGER_ROOT / "platforms" / "cursor" / "agents" / "02_triage_taxonomy.md")
+        self.assertEqual(model, "sonnet-4.6")
 
     def test_hypothesis_board_schema_requires_intent_gate(self) -> None:
         import yaml

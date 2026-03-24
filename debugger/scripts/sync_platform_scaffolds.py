@@ -89,7 +89,7 @@ def workspace_placeholder_text() -> str:
 
 用途：
 
-- 存放 accepted `rdc-debugger -> team_lead` intake 之后的 `case_id/run_id` 级运行现场
+- 存放 accepted `rdc-debugger` intake 之后的 `case_id/run_id` 级运行现场
 - 承载 case 级 `inputs/captures/`、run 级 `screenshots/`、`artifacts/`、`logs/`、`notes/`
 - 承载第二层交付物 `reports/report.md` 与 `reports/visual_report.html`
 
@@ -100,7 +100,7 @@ def workspace_placeholder_text() -> str:
 - 平台包装层中涉及运行区时，应统一把它表述为当前平台根目录下的 `workspace/`。
 - 导入后的原始 `.rdc` 只允许落在 `cases/<case_id>/inputs/captures/`，不得落在 `runs/<run_id>/`
 - standalone `capture open` 只建立 tools-layer session state，不会创建这里的 `case/run`
-- 这里的 `case/run` 只由 accepted `rdc-debugger -> team_lead` intake 流程初始化
+- 这里的 `case/run` 只由 accepted `rdc-debugger` intake 流程初始化
 - 模板仓库只保留占位骨架，不提交真实运行产物。
 """
 
@@ -138,7 +138,7 @@ cases/
 - `run_id` 承担 debug version。
 - 用户只负责提供 `.rdc`；accepted intake 后由 Agent 导入到 `inputs/captures/`。
 - 导入后的原始 `.rdc` 只允许落在 `inputs/captures/`；run 只保留 capture 引用与派生产物。
-- standalone `capture open` 不会创建这里的 case/run；这里只承载 accepted `rdc-debugger -> team_lead` intake 之后的 workspace state。
+- standalone `capture open` 不会创建这里的 case/run；这里只承载 accepted `rdc-debugger` intake 之后的 workspace state。
 - 第一层 session artifacts 仍写入同级 `common/knowledge/library/sessions/`；`workspace/` 不复制 gate 真相。
 """
 
@@ -287,10 +287,6 @@ def _public_entry_skill(ctx: dict[str, Any]) -> str:
     return str(((ctx.get("framework_compliance") or {}).get("entry_model") or {}).get("public_entry_skill", "")).strip()
 
 
-def _orchestration_role(ctx: dict[str, Any]) -> str:
-    return str(((ctx.get("framework_compliance") or {}).get("entry_model") or {}).get("orchestration_role", "")).strip()
-
-
 def main_skill_wrapper_text(ctx: dict[str, Any], platform_key: str) -> str:
     display_name = str((ctx["platform_capabilities"]["platforms"][platform_key] or {}).get("display_name", platform_key)).strip()
     public_entry_skill = _public_entry_skill(ctx)
@@ -298,7 +294,16 @@ def main_skill_wrapper_text(ctx: dict[str, Any], platform_key: str) -> str:
 
 当前文件是 {display_name} 的 public main skill 入口。
 
-正常用户请求先进入 `{public_entry_skill}`。本 skill 负责 preflight、补料、intake 规范化，并在条件满足后把任务交给 `team_lead`。
+平台启动后默认保持普通对话态。只有用户手动召唤 `{public_entry_skill}`，才进入 RenderDoc/RDC GPU Debug 调试框架。
+
+进入 `{public_entry_skill}` 后，本 skill 负责：
+
+- `intent_gate`
+- preflight
+- 缺失输入补料
+- intake 规范化
+- case/run 初始化
+- specialist 分派、阶段推进与质量门裁决
 
 本 skill 只引用当前平台根目录的 `common/`：
 
@@ -315,20 +320,9 @@ def main_skill_wrapper_text(ctx: dict[str, Any], platform_key: str) -> str:
 def role_skill_wrapper_text(ctx: dict[str, Any], platform_key: str, role: dict[str, Any]) -> str:
     display_name = str((ctx["platform_capabilities"]["platforms"][platform_key] or {}).get("display_name", platform_key)).strip()
     public_entry_skill = _public_entry_skill(ctx)
-    orchestration_role = _orchestration_role(ctx)
-    agent_id = str(role.get("agent_id", "")).strip()
     role_skill = str(role["role_skill_path"]).replace("\\", "/")
-
-    if agent_id == orchestration_role:
-        role_intro = "该角色只负责 orchestration，不是 public main skill。正常用户请求应先从 `rdc-debugger` 发起，当前 role 只接收 normalized intake / task handoff。"
-        title = "Team Lead Skill Wrapper（角色技能入口）"
-        extra = "在 `run_compliance.yaml(status=passed)` 生成前，你只能输出阶段性 brief，不得宣称最终裁决。"
-    else:
-        role_intro = "该角色默认是 internal/debug-only specialist。正常用户请求应先交给 `rdc-debugger`，只有调试 framework 本身时才直接使用该角色。"
-        title = "Role Skill Wrapper"
-        extra = ""
-
-    tail = "\n" + extra if extra else ""
+    role_intro = "该角色默认是 internal/debug-only specialist。平台启动后不会自动进入该角色；只有用户手动召唤 `rdc-debugger` 并由它分派时，才进入当前 role。"
+    title = "Role Skill Wrapper"
     return f"""# {title}
 
 当前文件是 {display_name} 的 role skill 入口。
@@ -341,7 +335,7 @@ def role_skill_wrapper_text(ctx: dict[str, Any], platform_key: str, role: dict[s
 2. common/{role_skill}
 3. common/config/platform_capabilities.json
 
-未先将顶层 `debugger/common/` 拷入当前平台根目录的 `common/` 之前，不允许在宿主中使用当前平台模板。{tail}
+未先将顶层 `debugger/common/` 拷入当前平台根目录的 `common/` 之前，不允许在宿主中使用当前平台模板。
 运行时 case/run 现场与第二层报告统一写入平台根目录下的 `workspace/`
 """
 
@@ -368,10 +362,8 @@ def agent_wrapper_body_text(ctx: dict[str, Any], platform_key: str, role: dict[s
     display_name = str((ctx["platform_capabilities"]["platforms"][platform_key] or {}).get("display_name", platform_key)).strip()
     target = ctx["platform_targets"]["platforms"][platform_key]
     public_entry_skill = _public_entry_skill(ctx)
-    orchestration_role = _orchestration_role(ctx)
     source_prompt = str(role["source_prompt"]).replace("\\", "/")
     role_skill = str(role["role_skill_path"]).replace("\\", "/")
-    agent_id = str(role.get("agent_id", "")).strip()
     package_prefix = _path_prefix_to_package_root(str(target.get("agent_dir") or ""))
 
     if platform_key == "cursor":
@@ -379,15 +371,8 @@ def agent_wrapper_body_text(ctx: dict[str, Any], platform_key: str, role: dict[s
     else:
         host_name = display_name
 
-    if agent_id == orchestration_role:
-        role_intro = "该角色只负责 orchestration，不是 public main skill。正常用户请求必须先从 `rdc-debugger` 发起，再由它提交给 `team_lead`。"
-        if platform_key == "copilot-ide":
-            extra = "在 `run_compliance.yaml(status=passed)` 生成前，你只能输出阶段性 brief，不得宣称最终裁决。"
-        else:
-            extra = "只有在 session artifacts 完整且 gate/audit 通过后，你才能输出最终裁决。"
-    else:
-        role_intro = "该角色默认是 internal/debug-only specialist。正常用户请求应先交给 `rdc-debugger` 完成 preflight 与路由，只有调试 framework 本身时才直接使用该角色。"
-        extra = ""
+    role_intro = "该角色默认是 internal/debug-only specialist。平台启动后不会自动进入该角色；只有用户手动召唤 `rdc-debugger` 并由它完成分派时，才进入当前 role。"
+    extra = ""
 
     tail = ("\n\n" + extra) if extra else ""
     return f"""# RenderDoc/RDC Agent Wrapper（宿主入口）
@@ -460,6 +445,33 @@ def sync_skill_wrappers(ctx: dict[str, Any], platform_key: str) -> None:
                 shutil.rmtree(child)
 
 
+def sync_agent_and_role_configs(ctx: dict[str, Any], platform_key: str) -> None:
+    package = ROOT / "platforms" / platform_key
+    target = ctx["platform_targets"]["platforms"][platform_key]
+    desired_files = {
+        str((role.get("platform_files") or {}).get(platform_key, "")).strip()
+        for role in ctx["role_manifest"]["roles"]
+        if str((role.get("platform_files") or {}).get(platform_key, "")).strip()
+    }
+
+    agent_dir = str(target.get("agent_dir") or "").strip()
+    if agent_dir:
+        agent_root = package / agent_dir
+        if agent_root.is_dir():
+            for child in agent_root.iterdir():
+                if child.is_file() and child.name not in desired_files:
+                    child.unlink()
+
+    role_config_dir = str(target.get("role_config_dir") or "").strip()
+    if role_config_dir:
+        role_root = package / role_config_dir
+        if role_root.is_dir():
+            desired_config_names = {f"{name}.toml" for name in desired_files}
+            for child in role_root.iterdir():
+                if child.is_file() and child.name not in desired_config_names:
+                    child.unlink()
+
+
 def sync_agent_wrappers(ctx: dict[str, Any], platform_key: str) -> None:
     package = ROOT / "platforms" / platform_key
     target = ctx["platform_targets"]["platforms"][platform_key]
@@ -504,6 +516,7 @@ def main(argv: list[str] | None = None) -> int:
     for platform_key in ctx["platform_capabilities"]["platforms"]:
         sync_placeholders(platform_key)
         sync_skill_wrappers(ctx, platform_key)
+        sync_agent_and_role_configs(ctx, platform_key)
         sync_agent_wrappers(ctx, platform_key)
     if findings:
         print("[platform scaffold findings]")

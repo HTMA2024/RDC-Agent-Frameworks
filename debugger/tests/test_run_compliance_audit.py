@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import shutil
@@ -66,7 +66,7 @@ def _base_action_chain(session_id: str, run_id: str, *, case_id: str = "case_001
             "ts_ms": 1772537600000,
             "run_id": run_id,
             "session_id": session_id,
-            "agent_id": "team_lead",
+            "agent_id": "rdc-debugger",
             "event_type": "dispatch",
             "status": "sent",
             "duration_ms": 15,
@@ -92,7 +92,7 @@ def _base_action_chain(session_id: str, run_id: str, *, case_id: str = "case_001
             "ts_ms": 1772537600900,
             "run_id": run_id,
             "session_id": session_id,
-            "agent_id": "team_lead",
+            "agent_id": "rdc-debugger",
             "event_type": "hypothesis_transition",
             "status": "applied",
             "duration_ms": 20,
@@ -346,7 +346,7 @@ def _seed_common_session(
         {
             "message_type": "SKEPTIC_SIGN_OFF",
             "from": "skeptic_agent",
-            "to": "team_lead",
+            "to": "rdc-debugger",
             "target_hypothesis": "H-001",
             "blade_review": [
                 {"blade": "刀1: 相关性刀", "result": "pass", "note": "ok"},
@@ -492,7 +492,7 @@ def _seed_run(
                     "intake_state": "validation",
                     "current_phase": "validation",
                     "current_task": "review fixture validation artifacts",
-                    "active_owner": "team_lead",
+                    "active_owner": "rdc-debugger",
                     "pending_requirements": [],
                     "blocking_issues": [],
                     "progress_summary": ["case initialized", "artifacts written"],
@@ -547,7 +547,7 @@ def _run_audit(root: Path, platform: str, run_root: Path) -> _ProcResult:
             "ts_ms": module._now_ms(),  # noqa: SLF001
             "run_id": str((yaml.safe_load((run_root / "run.yaml").read_text(encoding="utf-8")) or {}).get("run_id", "")),
             "session_id": payload["session_id"],
-            "agent_id": "team_lead",
+            "agent_id": "rdc-debugger",
             "event_type": "quality_check",
             "status": "pass" if payload["status"] == "passed" else "fail",
             "duration_ms": 0,

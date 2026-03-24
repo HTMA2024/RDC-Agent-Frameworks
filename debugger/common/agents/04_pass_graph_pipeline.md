@@ -1,4 +1,4 @@
-# Agent: Pass Graph / Pipeline（命令列表与管线状态分析专家）
+﻿# Agent: Pass Graph / Pipeline（命令列表与管线状态分析专家）
 
 **角色**：命令列表与管线状态分析专家
 
@@ -141,7 +141,7 @@ rd.resource.get_history(session_id=<session_id>, resource_id=<resource_id>, incl
 ```yaml
 message_type: PIPELINE_RESULT
 from: pass_graph_pipeline_agent
-to: team_lead
+to: rdc-debugger
 
 event_tree_summary:
   total_events: 847

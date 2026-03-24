@@ -59,14 +59,12 @@ class RepoBaselineValidationTests(unittest.TestCase):
     def test_capture_intake_docs_allow_upload_or_accessible_path(self) -> None:
         core_text = (DEBUGGER_ROOT / "common" / "AGENT_CORE.md").read_text(encoding="utf-8-sig")
         skill_text = (DEBUGGER_ROOT / "common" / "skills" / "rdc-debugger" / "SKILL.md").read_text(encoding="utf-8-sig")
-        team_lead_text = (DEBUGGER_ROOT / "common" / "agents" / "01_team_lead.md").read_text(encoding="utf-8-sig")
 
-        for text in (core_text, skill_text, team_lead_text):
+        for text in (core_text, skill_text):
             self.assertIn("在当前对话上传", text)
             self.assertIn("文件路径", text)
 
         self.assertIn("inputs/captures/manifest.yaml` 是 capture 导入 provenance 的唯一 SSOT", core_text)
-        self.assertIn("inputs/captures/manifest.yaml` 必须作为导入 provenance 的唯一 SSOT", team_lead_text)
 
     def test_rdc_debugger_docs_declare_minimal_noninteractive_preflight(self) -> None:
         skill_text = (DEBUGGER_ROOT / "common" / "skills" / "rdc-debugger" / "SKILL.md").read_text(encoding="utf-8-sig")
@@ -77,13 +75,13 @@ class RepoBaselineValidationTests(unittest.TestCase):
             "claude -p",
             "bounded readiness output",
             "case/run",
-            "team_lead",
+            "rdc-debugger",
         ):
             self.assertIn(marker, skill_text)
             self.assertIn(marker, intake_text)
 
-    def test_team_lead_contract_requires_immediate_case_run_initialization(self) -> None:
-        text = (DEBUGGER_ROOT / "common" / "agents" / "01_team_lead.md").read_text(encoding="utf-8-sig")
+    def test_rdc_debugger_contract_requires_immediate_case_run_initialization(self) -> None:
+        text = (DEBUGGER_ROOT / "common" / "skills" / "rdc-debugger" / "SKILL.md").read_text(encoding="utf-8-sig")
         for marker in (
             "Immediate Case/Run Initialization",
             "`intent_gate.decision = debugger`",
@@ -100,7 +98,7 @@ class RepoBaselineValidationTests(unittest.TestCase):
         expected = scaffold.expected_files(ctx, "cursor")
         self.assertIn(DEBUGGER_ROOT / "platforms" / "cursor" / ".cursorrules", expected)
         self.assertIn(DEBUGGER_ROOT / "platforms" / "cursor" / ".cursor" / "mcp.json", expected)
-        self.assertIn(DEBUGGER_ROOT / "platforms" / "cursor" / "agents" / "01_team_lead.md", expected)
+        self.assertIn(DEBUGGER_ROOT / "platforms" / "cursor" / "agents" / "02_triage_taxonomy.md", expected)
         self.assertIn(DEBUGGER_ROOT / "platforms" / "cursor" / "skills" / "rdc-debugger" / "SKILL.md", expected)
         self.assertIn(DEBUGGER_ROOT / "platforms" / "cursor" / "hooks" / "hooks.json", expected)
 
@@ -139,7 +137,7 @@ class RepoBaselineValidationTests(unittest.TestCase):
 
     def test_cursor_rules_use_rdc_debugger_as_normal_user_entry(self) -> None:
         text = (DEBUGGER_ROOT / "platforms" / "cursor" / ".cursorrules").read_text(encoding="utf-8-sig")
-        self.assertNotIn("正常用户请求只能从 `team_lead` 进入", text)
+        self.assertNotIn("正常用户请求只能从 `rdc-debugger` 进入", text)
         self.assertIn("`rdc-debugger`", text)
 
     def test_codex_coordination_mode_is_consistent(self) -> None:
@@ -156,7 +154,7 @@ class RepoBaselineValidationTests(unittest.TestCase):
         )
         self.assertEqual(capabilities["platforms"]["codex"]["coordination_mode"], "staged_handoff")
 
-    def test_claude_code_default_agent_is_team_lead(self) -> None:
+    def test_claude_code_default_agent_is_not_bound(self) -> None:
         validator = _load_module(DEBUGGER_ROOT / "scripts" / "validate_debugger_repo.py", "validate_debugger_repo_claude_agent_module")
         findings = validator._claude_code_agent_findings(DEBUGGER_ROOT)
         self.assertEqual(findings, [])
@@ -166,13 +164,13 @@ class RepoBaselineValidationTests(unittest.TestCase):
                 encoding="utf-8-sig"
             )
         )
-        self.assertEqual(settings.get("agent"), "team-lead")
+        self.assertNotIn("agent", settings)
 
         compliance = json.loads(
             (DEBUGGER_ROOT / "common" / "config" / "framework_compliance.json").read_text(encoding="utf-8-sig")
         )
         self.assertEqual(compliance.get("entry_model", {}).get("public_entry_skill"), "rdc-debugger")
-        self.assertEqual(compliance.get("entry_model", {}).get("orchestration_role"), "team_lead")
+        self.assertNotIn("orchestration_role", compliance.get("entry_model", {}))
 
     def test_claude_code_docs_keep_cli_as_default_entry(self) -> None:
         readme = (DEBUGGER_ROOT / "platforms" / "claude-code" / "README.md").read_text(encoding="utf-8-sig")
@@ -189,7 +187,7 @@ class RepoBaselineValidationTests(unittest.TestCase):
         cases_text = (DEBUGGER_ROOT / "platforms" / "claude-code" / "workspace" / "cases" / "README.md").read_text(encoding="utf-8-sig")
 
         self.assertIn("standalone `capture open`", workspace_text)
-        self.assertIn("accepted `rdc-debugger -> team_lead` intake", workspace_text)
+        self.assertIn("accepted `rdc-debugger` intake", workspace_text)
         self.assertIn("不要求用户手工把 `.rdc` 预放", workspace_text)
         self.assertIn("导入后的原始 `.rdc`", workspace_text)
         self.assertIn("standalone `capture open`", cases_text)
@@ -244,27 +242,13 @@ class RepoBaselineValidationTests(unittest.TestCase):
             self.assertIn("../../common/AGENT_CORE.md", text)
             self.assertEqual(text.split("---", 2)[2].lstrip("\r\n"), scaffold.agent_wrapper_body_text(ctx, "claude-code", role))
 
-    def test_claude_code_team_lead_tools_are_restricted(self) -> None:
+    def test_claude_code_specialist_tools_are_restricted(self) -> None:
         validator = _load_module(DEBUGGER_ROOT / "scripts" / "validate_debugger_repo.py", "validate_debugger_repo_tooling_module")
-        path = DEBUGGER_ROOT / "platforms" / "claude-code" / ".claude" / "agents" / "01_team_lead.md"
+        path = DEBUGGER_ROOT / "platforms" / "claude-code" / ".claude" / "agents" / "02_triage_taxonomy.md"
         tools = validator._frontmatter_string(path, "tools")
-        allowlist = validator._agent_allowlist(tools)
-
-        self.assertIn("Agent(", tools)
+        self.assertTrue(tools)
+        self.assertNotIn("Agent(", tools)
         self.assertNotIn("Bash", tools)
-        self.assertEqual(
-            allowlist,
-            {
-                "triage-taxonomy",
-                "capture-repro",
-                "pass-graph-pipeline",
-                "pixel-value-forensics",
-                "shader-ir",
-                "driver-device",
-                "skeptic",
-                "report-knowledge-curator",
-            },
-        )
 
     def test_write_scopes_match_shared_contract(self) -> None:
         validator = _load_module(DEBUGGER_ROOT / "scripts" / "validate_debugger_repo.py", "validate_debugger_repo_write_scope_module")

@@ -1,4 +1,4 @@
-# Agent: Driver / Device Specialist（驱动与设备差异分析专家）
+﻿# Agent: Driver / Device Specialist（驱动与设备差异分析专家）
 
 **角色**：驱动与设备差异分析专家
 
@@ -98,7 +98,7 @@ rd.replay.get_driver_info(session_id=<session_id_a>)
 若 cross_device_fingerprint_graph.yaml 已加载：
   查询 suspicious_expression_fingerprint（来自 Shader & IR Agent 输出）
   → 确认该指纹在哪些 GPU 型号上已有历史案例
-  → 为 Team Lead 提供"同指纹跨设备复现记录"
+  → 为 RDC Debugger 提供"同指纹跨设备复现记录"
 ```
 
 ### 步骤 7：写入 `workspace` 运行区
@@ -135,7 +135,7 @@ rd.replay.get_driver_info(session_id=<session_id_a>)
 ```yaml
 message_type: DRIVER_DEVICE_RESULT
 from: driver_device_agent
-to: team_lead
+to: rdc-debugger
 
 event_id: 523
 anomalous_device:
@@ -208,5 +208,5 @@ platform_attribution:
 
 - ❌ 在无 ISA 或 API Trace 直接证据的情况下声称「这是驱动 Bug」
 - ❌ 修改 Shader 代码或提出具体 Shader 修复方案（这是 Shader & IR Agent + Patch Engine 的职责）
-- ❌ 直接结案（你只能向 Team Lead 提交证据，最终裁决由 Team Lead 执行）
+- ❌ 直接结案（你只能向 RDC Debugger 提交证据，最终裁决由 RDC Debugger 执行）
 - ❌ 跳过跨设备指纹图查询（若数据库存在，必须查询以形成横向关联证据）

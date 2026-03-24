@@ -1,10 +1,10 @@
-# Intake Contract（输入合同）
+﻿# Intake Contract（输入合同）
 
 本文定义 Debugger framework 唯一的用户输入合同。
 
-目标不是规定用户必须按某种语言风格提问，而是要求任何进入调试链的输入，最终都必须被 `team_lead` 规范化为同一个 `case_input.yaml`。
+目标不是规定用户必须按某种语言风格提问，而是要求任何进入调试链的输入，最终都必须被 `rdc-debugger` 规范化为同一个 `case_input.yaml`。
 
-`rdc-debugger` 负责在 `team_lead` 之前做 preflight 与补料；`team_lead` 只在 handoff 条件满足后接手正式 intake 规范化。
+平台启动后默认保持普通对话态；只有用户手动召唤 `rdc-debugger`，才进入调试框架。进入框架后，由 `rdc-debugger` 自己完成 preflight、补料、intake 规范化、case/run 初始化与 specialist orchestration。
 
 ## 0A. Minimal Non-Interactive Preflight
 
@@ -25,9 +25,9 @@ When the host is running a non-interactive prompt such as `claude -p`, or the pr
 - create `case/run`
 - write `case_input.yaml`
 - write `hypothesis_board.yaml`
-- hand off to `team_lead`
+- continue inside `rdc-debugger`
 
-Full `case/run` creation remains gated on accepted intake plus `team_lead`.
+Full `case/run` creation remains gated on accepted `rdc-debugger` intake.
 
 ## 0. Framework Intent Gate
 
@@ -63,11 +63,11 @@ Full `case/run` creation remains gated on accepted intake plus `team_lead`.
 硬规则：
 
 - 用户提供 `.rdc` 的正式方式只有两种：在当前对话上传，或提供宿主当前会话可访问的文件路径
-- accepted intake 后由 `team_lead` 创建 case/run 并把 `.rdc` 导入 `../workspace/cases/<case_id>/inputs/captures/`
+- accepted intake 后由 `rdc-debugger` 创建 case/run 并把 `.rdc` 导入 `../workspace/cases/<case_id>/inputs/captures/`
 - 未拿到至少一份异常 `.rdc` 前，不得创建 `case_input.yaml`
 - 未拿到至少一份异常 `.rdc` 前，`rdc-debugger` 只能在当前会话 / 主面板中维护补料状态，不得创建 case/run 或 `hypothesis_board.yaml`
 - `intent_gate` 在 run 创建前只存在于当前会话；只有 `decision=debugger` 且 run 已创建后，才把摘要写进 `hypothesis_board.yaml`
-- 七段式 prompt 可以省略部分说明，但 `team_lead` 必须把缺失项显式归一化为 `unknown`、`[]` 或模式级阻断错误
+- 七段式 prompt 可以省略部分说明，但 `rdc-debugger` 必须把缺失项显式归一化为 `unknown`、`[]` 或模式级阻断错误
 - `case_input.yaml` 只能在 capture intake 成功后写入 `../workspace/cases/<case_id>/`
 
 ## 2. `case_input.yaml` 固定结构

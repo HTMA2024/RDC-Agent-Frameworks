@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 """Repository-level debugger validator."""
 
 from __future__ import annotations
@@ -182,8 +182,8 @@ def _platform_wrapper_path_findings(root: Path) -> list[str]:
                     )
 
     cursor_rules = (platform_root / "cursor" / ".cursorrules").read_text(encoding="utf-8-sig")
-    if "正常用户请求只能从 `team_lead` 进入" in cursor_rules:
-        findings.append("cursor/.cursorrules must not declare team_lead as the normal user entry")
+    if "正常用户请求只能从 `rdc-debugger` 进入" in cursor_rules:
+        findings.append("cursor/.cursorrules must not declare rdc-debugger as the normal user entry")
     if "rdc-debugger" not in cursor_rules:
         findings.append("cursor/.cursorrules must declare rdc-debugger as the normal user entry")
 
@@ -199,7 +199,6 @@ def _doc_contract_findings(root: Path) -> list[str]:
     core_doc = (root / "common" / "AGENT_CORE.md").read_text(encoding="utf-8-sig")
     intake_doc = (root / "common" / "docs" / "intake" / "README.md").read_text(encoding="utf-8-sig")
     main_skill = (root / "common" / "skills" / "rdc-debugger" / "SKILL.md").read_text(encoding="utf-8-sig")
-    team_lead_doc = (root / "common" / "agents" / "01_team_lead.md").read_text(encoding="utf-8-sig")
     claude_code_readme = (root / "platforms" / "claude-code" / "README.md").read_text(encoding="utf-8-sig")
     manus_readme = (root / "platforms" / "manus" / "README.md").read_text(encoding="utf-8-sig")
     manus_entrypoints = (root / "platforms" / "manus" / "references" / "entrypoints.md").read_text(encoding="utf-8-sig")
@@ -255,12 +254,6 @@ def _doc_contract_findings(root: Path) -> list[str]:
         findings.append("rdc-debugger skill must allow multi-round clarification before classification stabilizes")
     if "在当前对话上传" not in core_doc or "文件路径" not in core_doc:
         findings.append("AGENT_CORE.md must allow uploaded captures and accessible file paths")
-    if "inputs/captures/manifest.yaml` 是 capture 导入 provenance 的唯一 SSOT" not in core_doc:
-        findings.append("AGENT_CORE.md must define capture manifest as the import provenance SSOT")
-    if "在当前对话上传" not in main_skill or "文件路径" not in main_skill:
-        findings.append("rdc-debugger skill must allow uploaded captures and accessible file paths")
-    if "inputs/captures/manifest.yaml` 必须作为导入 provenance 的唯一 SSOT" not in team_lead_doc:
-        findings.append("team_lead contract must define capture manifest as the import provenance SSOT")
     if "统一走已配置的 MCP server" in claude_code_readme:
         findings.append("claude-code README must not declare MCP as the only default path")
 
@@ -382,14 +375,6 @@ def _model_routing_findings(root: Path) -> list[str]:
             if actual_model != expected_model:
                 findings.append(f"{platform_key}: {agent_id} rendered model mismatch ({actual_model} != {expected_model})")
 
-    codex_root = root / "platforms" / "codex" / ".codex" / "config.toml"
-    codex_team_lead = _expected_rendered_model(root, "codex", "team_lead")
-    if codex_team_lead is not None and codex_root.exists():
-        _, expected_team_lead_model = codex_team_lead
-        actual_root_model = _toml_string(codex_root, "model")
-        if actual_root_model != expected_team_lead_model:
-            findings.append(f"codex root model mismatch ({actual_root_model} != {expected_team_lead_model})")
-
     return findings
 
 
@@ -403,8 +388,8 @@ def _compliance_findings(root: Path) -> list[str]:
 
     if str(entry_model.get("public_entry_skill", "")).strip() != "rdc-debugger":
         findings.append("framework_compliance.json entry_model.public_entry_skill must be rdc-debugger")
-    if str(entry_model.get("orchestration_role", "")).strip() != "team_lead":
-        findings.append("framework_compliance.json entry_model.orchestration_role must be team_lead")
+    if "orchestration_role" in entry_model:
+        findings.append("framework_compliance.json entry_model.orchestration_role must not remain")
     if "notes/hypothesis_board.yaml" not in str(entry_model.get("panel_state_source", "")).strip():
         findings.append("framework_compliance.json entry_model.panel_state_source must point to notes/hypothesis_board.yaml")
 
@@ -590,25 +575,15 @@ def _claude_code_agent_findings(root: Path) -> list[str]:
     findings: list[str] = []
     manifest = _read_json(root / "common" / "config" / "role_manifest.json")
     role_policy = _read_json(root / "common" / "config" / "role_policy.json")
-    compliance = _read_json(root / "common" / "config" / "framework_compliance.json")
     settings = _read_json(root / "platforms" / "claude-code" / ".claude" / "settings.json")
 
     roles = manifest.get("roles") or []
     role_rows = role_policy.get("roles") or {}
     tool_policies = role_policy.get("tool_policies") or {}
     claude_agents_root = root / "platforms" / "claude-code" / ".claude" / "agents"
-    orchestration_role = str((compliance.get("entry_model") or {}).get("orchestration_role", "")).strip() or "team_lead"
-
-    orchestration_row = next((role for role in roles if role.get("agent_id") == orchestration_role), None)
-    formal_entry_name = _claude_code_subagent_name(orchestration_row or {})
-    if not formal_entry_name:
-        findings.append("role_manifest.json missing claude-code orchestration subagent name")
-    else:
-        actual_agent = str(settings.get("agent", "")).strip()
-        if actual_agent != formal_entry_name:
-            findings.append(
-                f"claude-code settings bootstrap agent mismatch ({actual_agent} != {formal_entry_name})"
-            )
+    actual_agent = str(settings.get("agent", "")).strip()
+    if actual_agent:
+        findings.append("claude-code settings must not bind a default debugger subagent")
 
     for role in roles:
         platform_file = (role.get("platform_files") or {}).get("claude-code")
@@ -632,27 +607,6 @@ def _claude_code_agent_findings(root: Path) -> list[str]:
         if not description:
             findings.append(f"claude-code {role.get('agent_id')} missing description")
 
-    team_lead_role = next((role for role in roles if role.get("agent_id") == orchestration_role), None)
-    if team_lead_role:
-        team_lead_path = claude_agents_root / str((team_lead_role.get("platform_files") or {}).get("claude-code", ""))
-        if not team_lead_path.is_file():
-            findings.append(f"claude-code team_lead file missing: {team_lead_path}")
-        else:
-            team_lead_tools = _frontmatter_string(team_lead_path, "tools")
-            if not team_lead_tools or "Agent(" not in team_lead_tools:
-                findings.append("claude-code team_lead must expose Agent(...) in tools allowlist")
-            if team_lead_tools and "Bash" in team_lead_tools:
-                findings.append("claude-code team_lead must not expose Bash")
-
-            expected_specialists = {
-                _claude_code_subagent_name(role)
-                for role in roles
-                if str(role.get("agent_id", "")).strip() != orchestration_role
-            }
-            actual_specialists = _agent_allowlist(team_lead_tools)
-            if actual_specialists != expected_specialists:
-                findings.append("claude-code team_lead Agent allowlist does not match specialist subagents")
-
     triage_role = next((role for role in roles if role.get("agent_id") == "triage_agent"), None)
     if triage_role:
         triage_path = claude_agents_root / str((triage_role.get("platform_files") or {}).get("claude-code", ""))
@@ -670,7 +624,7 @@ def _claude_code_agent_findings(root: Path) -> list[str]:
         policy_name = str((role_rows.get(agent_id) or {}).get("tool_policy", "")).strip()
         policy = tool_policies.get(policy_name) or {}
         allow_live_tools = bool(policy.get("allow_live_tools"))
-        if not allow_live_tools or agent_id == orchestration_role:
+        if not allow_live_tools:
             continue
         platform_file = (role.get("platform_files") or {}).get("claude-code")
         if not platform_file:
@@ -705,7 +659,6 @@ def _write_scope_findings(root: Path) -> list[str]:
         findings.append(f"framework_compliance.json missing write_scope_paths entries: {sorted(missing_scopes)}")
 
     expected_role_scopes = {
-        "team_lead": {"workspace_control"},
         "triage_agent": {"workspace_notes"},
         "capture_repro_agent": {"workspace_notes"},
         "pass_graph_pipeline_agent": {"workspace_notes"},
@@ -727,7 +680,7 @@ def _write_scope_findings(root: Path) -> list[str]:
             findings.append(f"{agent_id}: write_scopes reference undefined contract scopes {sorted(undefined_scopes)}")
 
     doc_checks = [
-        ("team_lead", root / "common" / "agents" / "01_team_lead.md", ["case.yaml", "run.yaml", "notes/hypothesis_board.yaml"]),
+        ("rdc-debugger", root / "common" / "skills" / "rdc-debugger" / "SKILL.md", ["case_input.yaml", "case_id", "run_id", "hypothesis_board.yaml"]),
         ("triage_agent", root / "common" / "agents" / "02_triage_taxonomy.md", ["runs/<run_id>/notes/"]),
         ("capture_repro_agent", root / "common" / "agents" / "03_capture_repro.md", ["runs/<run_id>/notes/"]),
         ("pass_graph_pipeline_agent", root / "common" / "agents" / "04_pass_graph_pipeline.md", ["runs/<run_id>/notes/"]),

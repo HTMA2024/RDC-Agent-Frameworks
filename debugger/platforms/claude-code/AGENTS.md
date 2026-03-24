@@ -29,9 +29,8 @@
 
 强制规则：
 
-- `.claude/settings.json` 中若仍保留 `agent: team-lead`，它只承担 host bootstrap / orchestrator 语义；不要把它当 public main skill。
-- 正常用户入口只有 `rdc-debugger`
-- `team_lead` 与其他 specialist 默认是 internal/debug-only，由 `rdc-debugger` 完成用户侧入口与 handoff
+- 平台启动后默认保持普通对话态；只有用户手动召唤 `rdc-debugger`，才进入 RenderDoc/RDC GPU Debug 调试框架
+- 除 `rdc-debugger` 之外，其他 specialist 默认都是 internal/debug-only，只能由 `rdc-debugger` 在框架内分派
 - Claude Code 默认入口是 local-first `CLI`；只有用户明确要求时才切到 `MCP`
 - `.claude/settings.json` 中预配置的 `MCP` server 只是可选接入面，不改变默认入口
 - 用户尚未提供可导入的 `.rdc` 时，必须以 `BLOCKED_MISSING_CAPTURE` 停止，不得初始化 case/run 或继续做 debug、investigation、tool planning
@@ -40,7 +39,7 @@
 未先将 `debugger/common/` 整包覆盖到平台根 `common/`、且将 RDC-Agent-Tools 整包覆盖到平台根 `tools/` 之前，不允许在宿主中使用当前平台模板。
 
 运行时工作区固定为平台根目录下的 `workspace/`
-- `workspace/` 只在被接受的 `rdc-debugger -> team_lead` intake 流程中初始化 case/run 现场。
+- `workspace/` 只在被接受的手动 `rdc-debugger` intake 流程中初始化 case/run 现场。
 - native hooks 会阻断未通过 gate 的结案；同时仍要求生成 `artifacts/run_compliance.yaml` 作为统一合规裁决。
 - 覆盖完成后，平台根 `common/README.md` 按 shared common 入口使用，不再当作占位目录说明。
 - Claude hooks 只接受 string `matcher`；文件路径级过滤由共享 hook dispatcher 读取 hook payload 后判定。

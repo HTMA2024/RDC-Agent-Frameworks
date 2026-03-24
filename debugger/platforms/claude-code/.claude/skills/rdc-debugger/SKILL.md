@@ -2,7 +2,16 @@
 
 当前文件是 Claude Code 的 public main skill 入口。
 
-正常用户请求先进入 `rdc-debugger`。本 skill 负责 preflight、补料、intake 规范化，并在条件满足后把任务交给 `team_lead`。
+平台启动后默认保持普通对话态。只有用户手动召唤 `rdc-debugger`，才进入 RenderDoc/RDC GPU Debug 调试框架。
+
+进入 `rdc-debugger` 后，本 skill 负责：
+
+- `intent_gate`
+- preflight
+- 缺失输入补料
+- intake 规范化
+- case/run 初始化
+- specialist 分派、阶段推进与质量门裁决
 
 本 skill 只引用当前平台根目录的 `common/`：
 

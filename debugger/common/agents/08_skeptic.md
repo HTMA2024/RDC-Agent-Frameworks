@@ -1,4 +1,4 @@
-# Agent: Skeptic / Adversarial Reviewer（对抗性审查专家）
+﻿# Agent: Skeptic / Adversarial Reviewer（对抗性审查专家）
 
 **角色**：怀疑论者 / 对抗性审查专家
 
@@ -48,7 +48,7 @@
 
 ## 核心工作流
 
-### 当 Team Lead 提交假设签署请求时
+### 当 RDC Debugger 提交假设签署请求时
 
 必须读取：
 
@@ -89,7 +89,7 @@
 ```yaml
 message_type: SKEPTIC_CHALLENGE
 from: skeptic_agent
-to: team_lead
+to: rdc-debugger
 
 challenges:
   - challenge_id: SC-REF-001
@@ -113,7 +113,7 @@ sign_off:
 ```yaml
 message_type: SKEPTIC_SIGN_OFF
 from: skeptic_agent
-to: team_lead
+to: rdc-debugger
 
 blade_review:
   - blade: "刀1: 相关性刀"

@@ -46,7 +46,7 @@ ACTION_SPECIALISTS = {
     "shader_ir_agent",
     "driver_device_agent",
 }
-AGENT_IDS = ACTION_SPECIALISTS | {"team_lead", "skeptic_agent", "curator_agent"}
+AGENT_IDS = ACTION_SPECIALISTS | {"rdc-debugger", "skeptic_agent", "curator_agent"}
 HYPOTHESIS_STATES = ("OPEN", "ACTIVE", "CONFLICTED", "ARBITRATED", "VALIDATED", "REFUTED")
 ACTION_CHAIN_SCHEMA = "2"
 SESSION_EVIDENCE_SCHEMA = "2"
@@ -935,7 +935,7 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
     _check(checks, "counterfactual_review", not cf_issues, "counterfactual reviews must be independently approved and structurally complete", path=session_evidence if session_evidence.is_file() else None, refs=cf_issues[:8] or None)
     _check(checks, "skeptic_signoff_status", _skeptic_signed(skeptic_data), "skeptic_signoff artifact must contain a signed approval", path=skeptic_signoff if skeptic_signoff.is_file() else None)
 
-    dispatch_ok = any(str(e.get("event_type", "")).strip() == "dispatch" and str(e.get("agent_id", "")).strip() == "team_lead" for e in events)
+    dispatch_ok = any(str(e.get("event_type", "")).strip() == "dispatch" and str(e.get("agent_id", "")).strip() == "rdc-debugger" for e in events)
     specialist_ok = any(str(e.get("event_type", "")).strip() == "tool_execution" and str(e.get("agent_id", "")).strip() in ACTION_SPECIALISTS for e in events)
     skeptic_ok = any(str(e.get("agent_id", "")).strip() == "skeptic_agent" and str(e.get("event_type", "")).strip() in {"conflict_resolved", "counterfactual_reviewed", "quality_check"} for e in events)
     curator_ok = any(
@@ -943,7 +943,7 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
         and str(e.get("event_type", "")).strip() in {"artifact_write", "knowledge_candidate_emitted", "knowledge_candidate_transition"}
         for e in events
     )
-    _check(checks, "action_chain_dispatch", dispatch_ok, "action_chain must contain a dispatch event from team_lead", path=action_chain if action_chain.is_file() else None)
+    _check(checks, "action_chain_dispatch", dispatch_ok, "action_chain must contain a dispatch event from rdc-debugger", path=action_chain if action_chain.is_file() else None)
     _check(checks, "action_chain_specialist", specialist_ok, "action_chain must contain specialist tool_execution evidence", path=action_chain if action_chain.is_file() else None)
     _check(checks, "action_chain_skeptic", skeptic_ok, "action_chain must contain skeptic review activity", path=action_chain if action_chain.is_file() else None)
     _check(checks, "action_chain_curator", curator_ok, "action_chain must contain curator artifact/proposal writes", path=action_chain if action_chain.is_file() else None)
@@ -1028,7 +1028,7 @@ def main() -> int:
             "ts_ms": _now_ms(),
             "run_id": str((_read_yaml(run_root / 'run.yaml') or {}).get('run_id', '')).strip() if (run_root / "run.yaml").is_file() else "",
             "session_id": payload["session_id"],
-            "agent_id": "team_lead",
+            "agent_id": "rdc-debugger",
             "event_type": "quality_check",
             "status": "pass" if payload["status"] == "passed" else "fail",
             "duration_ms": 0,

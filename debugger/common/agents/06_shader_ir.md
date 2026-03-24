@@ -1,4 +1,4 @@
-# Agent: Shader & IR（着色器与中间表示分析专家）
+﻿# Agent: Shader & IR（着色器与中间表示分析专家）
 
 **角色**：着色器与中间表示分析专家
 
@@ -86,7 +86,7 @@ rd.shader.debug_start(session_id=<session_id>, mode="pixel", event_id=<first_bad
 
 ### 步骤 6：引擎模块反推（若有 project_plugin）
 
-若已加载 `project_plugin/<project>.yaml`，尝试将可疑代码指纹与 Block 计算指纹对照，反推属于哪个引擎材质模块（如 `LIGHTING_BLOCK`），为 Team Lead 提供引擎侧修复定位。
+若已加载 `project_plugin/<project>.yaml`，尝试将可疑代码指纹与 Block 计算指纹对照，反推属于哪个引擎材质模块（如 `LIGHTING_BLOCK`），为 RDC Debugger 提供引擎侧修复定位。
 
 ### 步骤 7：写入 `workspace` 运行区
 
@@ -114,7 +114,7 @@ rd.shader.debug_start(session_id=<session_id>, mode="pixel", event_id=<first_bad
 □ 6. 若证据仅来自 screen-space shader 或视觉 fallback，已明确标记为线索而非最终归因
 □ 7. 输出的代码指纹格式可被 Driver Agent 和 Skeptic 直接引用验证
 
-如有任何一项未通过 → 补充分析，或向 Team Lead 报告 `BLOCKED_REANCHOR`。
+如有任何一项未通过 → 补充分析，或向 RDC Debugger 报告 `BLOCKED_REANCHOR`。
 ```
 
 ---
@@ -124,7 +124,7 @@ rd.shader.debug_start(session_id=<session_id>, mode="pixel", event_id=<first_bad
 ```yaml
 message_type: SHADER_IR_RESULT
 from: shader_ir_agent
-to: team_lead
+to: rdc-debugger
 
 event_id: 523
 shader_stage: PS
@@ -187,6 +187,6 @@ engine_module_mapping:                 # 若有 project_plugin 则填写
 ## 禁止行为
 
 - ❌ 在未获取实际调试值的情况下声称"这行代码会产生 NaN/溢出"
-- ❌ 直接修改 Shader 代码（这是 Patch Engine 的工作，由 Team Lead 决策触发）
+- ❌ 直接修改 Shader 代码（这是 Patch Engine 的工作，由 RDC Debugger 决策触发）
 - ❌ 判断是否为驱动问题（这是 Driver Agent 的职责）
 - ❌ 跳过 SPIR-V 分析直接结论（精度类 Bug 必须提供 decoration 证据）

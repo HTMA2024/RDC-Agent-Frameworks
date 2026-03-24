@@ -2,7 +2,6 @@
   "schema_version": 1,
   "entry_model": {
     "public_entry_skill": "rdc-debugger",
-    "orchestration_role": "team_lead",
     "panel_state_source": "workspace/cases/<case_id>/runs/<run_id>/notes/hypothesis_board.yaml"
   },
   "runtime_artifact_contract": {

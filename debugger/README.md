@@ -1,4 +1,4 @@
-# RenderDoc/RDC GPU Debug（调试框架）
+﻿# RenderDoc/RDC GPU Debug（调试框架）
 
 `debugger/` 是 `RDC-Agent-Frameworks` 中面向 RenderDoc/RDC GPU 调试场景的专属 framework 根目录。
 本 framework 依赖的 `Tools` 真相边界聚焦于“打开 `.rdc` 后做离线 replay / 调试 / 导出”，不把任意 app 控制面视为默认公开能力。
@@ -60,7 +60,7 @@
 3. 将 `RDC-Agent-Tools` 根目录整包拷贝到该平台根的 `tools/`。
 4. 运行 `python common/config/validate_binding.py --strict`，确认 package-local `tools/`、snapshot 与宿主入口文件都已对齐。
 5. 完成覆盖后，在对应宿主中打开该平台根目录。
-6. 正常用户请求从 `rdc-debugger` 发起；`team_lead` 与其他 specialist 角色默认是 internal/debug-only。
+6. 正常用户请求从 `rdc-debugger` 发起；`rdc-debugger` 与其他 specialist 角色默认是 internal/debug-only。
 7. 发起 debug 任务时，用户必须先提供一份或多份 `.rdc`；可在当前对话上传，或提供宿主当前会话可访问的文件路径。
 
 说明：
@@ -69,7 +69,7 @@
 - 未同时完成 `common/` 覆盖、`tools/` 覆盖与 binding 校验前，平台模板不可用。
 - 平台入口选择必须遵循 shared docs 的统一规则：可直达本地环境的宿主默认 local-first / daemon-backed `CLI`；不能直达本地环境的宿主默认 `MCP`。
 - 任务开始时，Agent 必须向用户说明当前采用的入口模式；若所选入口的前置条件未满足，必须先阻断。
-- `rdc-debugger` 是当前 framework 唯一 public main skill；`team_lead` 只承担 orchestration + intake normalization。
+- `rdc-debugger` 是当前 framework 唯一 public main skill；`rdc-debugger` 只承担 orchestration + intake normalization。
 - 用户不负责手工把 `.rdc` 预放进 `workspace/`；accepted intake 后由 Agent 创建 case/run，并把 `.rdc` 导入 `workspace/cases/<case_id>/inputs/captures/`。
 - snapshot 必须与 `RDC-Agent-Tools/spec/tool_catalog.json` 当前 `tool_count` 与工具集合对齐，其中 `rd.vfs.*` 只按导航层解释，`tabular/tsv` 只按 projection 支持解释。
 

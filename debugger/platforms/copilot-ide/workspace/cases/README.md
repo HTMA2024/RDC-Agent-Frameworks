@@ -30,5 +30,5 @@ cases/
 - `run_id` 承担 debug version。
 - 用户只负责提供 `.rdc`；accepted intake 后由 Agent 导入到 `inputs/captures/`。
 - 导入后的原始 `.rdc` 只允许落在 `inputs/captures/`；run 只保留 capture 引用与派生产物。
-- standalone `capture open` 不会创建这里的 case/run；这里只承载 accepted `rdc-debugger -> team_lead` intake 之后的 workspace state。
+- standalone `capture open` 不会创建这里的 case/run；这里只承载 accepted `rdc-debugger` intake 之后的 workspace state。
 - 第一层 session artifacts 仍写入同级 `common/knowledge/library/sessions/`；`workspace/` 不复制 gate 真相。

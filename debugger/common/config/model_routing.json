@@ -118,7 +118,6 @@
     }
   },
   "role_profiles": {
-    "team_lead": "orchestrator",
     "triage_agent": "investigator",
     "capture_repro_agent": "investigator",
     "pass_graph_pipeline_agent": "investigator",

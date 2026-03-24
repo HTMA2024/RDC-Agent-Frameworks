@@ -2,25 +2,6 @@
   "schema_version": 2,
   "roles": [
     {
-      "agent_id": "team_lead",
-      "category": "orchestrator",
-      "display_name": "Team Lead",
-      "description": "Coordinate delegates, own task intake, and enforce verdict gates.",
-      "source_prompt": "agents/01_team_lead.md",
-      "role_skill_path": "skills/team-lead-orchestration/SKILL.md",
-      "platform_files": {
-        "claude-code": "01_team_lead.md",
-        "code-buddy": "01_team_lead.md",
-        "copilot-cli": "01_team_lead.agent.md",
-        "copilot-ide": "orchestrator.md",
-        "codex": "team_lead",
-        "cursor": "01_team_lead.md"
-      },
-      "platform_subagent_names": {
-        "claude-code": "team-lead"
-      }
-    },
-    {
       "agent_id": "triage_agent",
       "category": "investigator",
       "display_name": "Triage & Taxonomy",

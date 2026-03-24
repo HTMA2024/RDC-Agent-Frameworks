@@ -2,7 +2,7 @@
 
 当前文件是 Copilot IDE 的 role skill 入口。
 
-该角色默认是 internal/debug-only specialist。正常用户请求应先交给 `rdc-debugger`，只有调试 framework 本身时才直接使用该角色。
+该角色默认是 internal/debug-only specialist。平台启动后不会自动进入该角色；只有用户手动召唤 `rdc-debugger` 并由它分派时，才进入当前 role。
 
 先阅读：
 

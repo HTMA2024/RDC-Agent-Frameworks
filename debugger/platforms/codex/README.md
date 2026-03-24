@@ -20,7 +20,7 @@
 5. 正式发起 debug 前，用户必须先提供至少一份 `.rdc`；可在当前对话上传，或提供宿主当前会话可访问的文件路径。accepted intake 后由 Agent 导入 `workspace/cases/<case_id>/inputs/captures/`。
 6. 使用当前平台根目录下、与 `common/` 和 `tools/` 并列的 `workspace/` 作为运行区。
 7. 完成覆盖后，打开当前目录作为 Codex workspace root。
-8. 正常用户请求从 `rdc-debugger` 发起；`team_lead` 与其他 specialist 默认是 internal/debug-only。
+8. 平台启动后默认保持普通对话态；只有用户手动召唤 `rdc-debugger`，才进入调试框架。除 `rdc-debugger` 之外，其他 specialist 默认都是 internal/debug-only。
 9. `AGENTS.md`、`.agents/skills/`、`.codex/config.toml` 与 `.codex/agents/*.toml` 只允许引用当前平台根目录的 common/。
 
 约束：
@@ -38,8 +38,8 @@ Sub-Agent 工作模型：
 
 Codex sub-agent 现已正式可用。本平台采用 `staged_handoff` coordination mode，对应以下工作模型：
 
-- `rdc-debugger` 是 public main skill；`team_lead` 是唯一 runtime_owner 与 orchestrator，负责 intake normalization、分派与质量门裁决。
+- `rdc-debugger` 是 public main skill；`rdc-debugger` 是唯一 runtime_owner 与 orchestrator，负责 intake normalization、分派与质量门裁决。
 - **Sub-agents 之间不具备直接通信能力**，所有跨 agent 协调通过 workspace artifacts 间接完成。
-- 标准分派顺序：`team_lead` → `triage_agent` → `capture_repro_agent` → specialists（`pass_graph_pipeline`、`pixel_forensics`、`shader_ir`、`driver_device`）→ `skeptic_agent` → `curator_agent`。
-- 每个 specialist 将结果写入 `workspace/cases/<case_id>/runs/<run_id>/` 指定位置后返回，`team_lead` 读取后继续分派。
+- 标准分派顺序：`rdc-debugger` → `triage_agent` → `capture_repro_agent` → specialists（`pass_graph_pipeline`、`pixel_forensics`、`shader_ir`、`driver_device`）→ `skeptic_agent` → `curator_agent`。
+- 每个 specialist 将结果写入 `workspace/cases/<case_id>/runs/<run_id>/` 指定位置后返回，`rdc-debugger` 读取后继续分派。
 - Specialist 不得直接分派其他 specialist。

@@ -1,10 +1,10 @@
-# Cursor Template（平台模板）
+﻿# Cursor Template（平台模板）
 
 当前目录是 Cursor 的 platform-local 模板。Agent 的目标是使用 RenderDoc/RDC platform tools 调试 GPU 渲染问题。
 
 入口规则：
 
-- 当前宿主支持 native agents、skills、rules-config hooks 与 `MCP`，正式用户请求应先从 `rdc-debugger` 进入，再由它把任务交给 `team_lead`。
+- 当前宿主支持 native agents、skills、rules-config hooks 与 `MCP`，但平台启动后默认保持普通对话态；只有用户手动召唤 `rdc-debugger`，才进入调试框架。
 - 当前宿主可直接访问本地进程、文件系统与 workspace，默认采用 local-first。
 - 默认入口是 daemon-backed `CLI`；只有用户明确要求按 `MCP` 接入时，才切换到 `MCP`。
 - 任务开始时，Agent 必须向用户说明当前采用的是 `CLI` 还是 `MCP`。
@@ -21,7 +21,7 @@
 5. 正式发起 debug 前，用户必须先提供至少一份 `.rdc`；可在当前对话上传，或提供宿主当前会话可访问的文件路径。accepted intake 后由 Agent 导入 `workspace/cases/<case_id>/inputs/captures/`。
 6. 使用当前平台根目录下、与 `common/` 和 `tools/` 并列的 `workspace/` 作为运行区。
 7. 完成覆盖后，再在 Cursor 中打开当前平台根目录。
-8. 正常用户请求从 `rdc-debugger` 发起；`team_lead` 与其他 specialist 默认是 internal/debug-only。
+8. 平台启动后默认保持普通对话态；只有用户手动召唤 `rdc-debugger`，才进入调试框架。除 `rdc-debugger` 之外，其他 specialist 默认都是 internal/debug-only。
 
 约束：
 

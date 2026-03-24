@@ -1,4 +1,4 @@
-# Workspace Layout（工作区布局）
+﻿# Workspace Layout（工作区布局）
 
 本文定义 Debugger 框架的运行时 `workspace/` 合同。
 
@@ -157,7 +157,7 @@ workspace/
 
 角色边界：
 
-- `team_lead` 只写 `workspace_control`
+- `rdc-debugger` 只写 `workspace_control`
 - investigators 只写 `workspace_notes`
 - `skeptic_agent` 只写 `session_signoff`
 - `curator_agent` 写 `workspace_reports`、`session_artifacts` 与 `knowledge_library`

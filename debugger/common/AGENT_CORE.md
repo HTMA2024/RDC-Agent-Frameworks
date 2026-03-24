@@ -29,12 +29,12 @@
 
 ## 2. Mandatory Intent Gate
 
-所有进入 `debugger` 的正式请求，在做 debugger-specific preflight、capture intake、case/run 初始化、`team_lead` handoff 之前，必须先由 `rdc-debugger` 执行 `intent_gate`。
+所有进入 `debugger` 的正式请求，在做 debugger-specific preflight、capture intake、case/run 初始化与 specialist 分派之前，必须先由 `rdc-debugger` 执行 `intent_gate`。
 
 硬规则：
 
 - `rdc-debugger` 是唯一 framework classifier。
-- `team_lead`、`triage_agent`、`capture_repro_agent` 与其他 specialist 不得重做 framework 判定。
+- `triage_agent`、`capture_repro_agent` 与其他 specialist 不得重做 framework 判定。
 - `intent_gate` 只能由主入口 LLM 按显式 rubric 执行；不得引入 Python classifier、hook classifier 或 specialist 二次改判。
 - A/B 可能只是 debugger 的证据方法，不自动等于 analyst。
 - 若任务主要在问“哪里不同”，且没有 root-cause / fix-verification 目标，则必须 reject + redirect 到 `rdc-analyst`。
@@ -88,7 +88,7 @@
 5. 阻断期间允许的唯一动作是提示用户上传 `.rdc`，或提供宿主当前会话可访问的文件路径。
 6. 不允许用截图、日志、文本描述、skill 文本、平台模板说明或模型记忆替代 `.rdc` 作为第一性调试输入。
 7. 新导入 `.rdc` 一律按 append intake 处理；不得隐式 overwrite 已有 capture。
-8. `team_lead` 只在 accepted intake 后初始化 `case_id`、`run_id`、`workspace_run_root`，并把 `.rdc` 导入 `inputs/captures/`。
+8. `rdc-debugger` 只在 accepted intake 后初始化 `case_id`、`run_id`、`workspace_run_root`，并把 `.rdc` 导入 `inputs/captures/`。
 9. 在 capture intake 完成前，不允许初始化 `case_id`、`run_id`、`workspace_run_root` 或 `case_input.yaml`。
 
 停止时统一输出：
@@ -116,8 +116,7 @@
 
 硬规则：
 
-- `rdc-debugger` 是 public main skill，负责 preflight、补料与 handoff 组织
-- `team_lead` 是唯一 intake 规范化者
+- `rdc-debugger` 是 public main skill，负责 preflight、补料、intake 规范化、case/run 初始化与 orchestration
 - specialist 不得绕过 `case_input.yaml` 直接消费原始 prose prompt 作为系统真相
 - `case_input.yaml` 必须包含：
   - `session`
@@ -150,7 +149,6 @@
 
 内部 `agent_id` SSOT：
 
-- `team_lead`
 - `triage_agent`
 - `capture_repro_agent`
 - `pass_graph_pipeline_agent`
@@ -164,16 +162,15 @@
 
 - `rdc-debugger` 是当前 framework 唯一 public main skill。
 - `rdc-debugger` 也是当前 framework 唯一 classifier。
-- `team_lead` 是唯一 orchestrator + intake normalizer，不是 public main skill。
 - 其他角色默认是 internal/debug-only specialist，不是正常用户入口。
-- 若宿主无法隐藏 `team_lead` 或 specialist 入口，仍必须明确：正常用户请求应先交给 `rdc-debugger`。
-- specialist 不得绕过 `team_lead` 重新定义任务 intake、验证等级、裁决门槛或 delegation policy。
+- 平台启动后默认保持普通对话态；只有用户手动召唤 `rdc-debugger`，才进入 debugger workflow。
+- specialist 不得绕过 `rdc-debugger` 重新定义任务 intake、验证等级、裁决门槛或 delegation policy。
 
 ## 7. Global Workflow
 
 统一工作流：
 
-1. `team_lead`
+1. `rdc-debugger`
    - 检查 `.rdc` intake
    - 规范化七段式用户输入为 `case_input.yaml`
    - 建立 hypothesis board
@@ -330,7 +327,7 @@
 
 角色分工约束：
 
-- `team_lead` 只允许写 `workspace_control` 范围，不直接执行 live `rd.*`，也不写最终报告或知识对象
+- `rdc-debugger` 只允许写 `workspace_control` 范围，不直接执行 live `rd.*`，也不写最终报告或知识对象
 - `triage_agent`、`capture_repro_agent`、`pass_graph_pipeline_agent`、`pixel_forensics_agent`、`shader_ir_agent`、`driver_device_agent` 只允许写 `workspace_notes` 范围
 - `skeptic_agent` 只允许写 `session_signoff`
 - `curator_agent` 负责 `workspace_reports`、`session_artifacts` 与 `knowledge_library`

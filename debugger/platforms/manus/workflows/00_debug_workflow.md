@@ -2,13 +2,13 @@
 
 ## 目标
 
-在低能力宿主中，用 workflow 方式完成 RenderDoc/RDC GPU Debug 的最小闭环。正常用户入口仍由 `rdc-debugger` 承担，正式 intake normalization 则由 `team_lead` / orchestrator 语义承担。
+在低能力宿主中，用 workflow 方式完成 RenderDoc/RDC GPU Debug 的最小闭环。正常用户入口仍由 `rdc-debugger` 承担，正式 intake normalization 则由 `rdc-debugger` / orchestrator 语义承担。
 
 ## 阶段
 
 1. `tools preflight`
  - 校验 `platform_adapter.json`、`tools_source_root` 与 `runtime.mode`
-2. `team_lead intake`
+2. `rdc-debugger intake`
  - 先检查用户是否已提供可导入的 `.rdc`；可在当前对话上传，或提供宿主当前会话可访问的文件路径；若缺失则以 `BLOCKED_MISSING_CAPTURE` 直接阻断
 3. `triage`
  - 仅在 capture intake 完成后，结构化现象、触发条件、可能的 SOP 入口

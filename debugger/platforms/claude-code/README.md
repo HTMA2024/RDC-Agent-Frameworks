@@ -19,7 +19,7 @@
 5. 正式发起 debug 前，用户必须先提供至少一份 `.rdc`；可在当前对话上传，或提供宿主当前会话可访问的文件路径。accepted intake 后由 Agent 导入 `workspace/cases/<case_id>/inputs/captures/`。
 6. 使用当前平台根目录下、与 `common/` 和 `tools/` 并列的 `workspace/` 作为运行区。
 7. 完成覆盖后，再在对应宿主中打开当前平台根目录。
-8. 正常用户请求从 `.claude/skills/rdc-debugger/` 进入；若 `.claude/settings.json` 仍保留 `team-lead` bootstrap agent，它只承担 orchestration，不是 public main skill。
+8. 平台启动后默认保持普通对话态；只有用户手动召唤 `.claude/skills/rdc-debugger/`，才进入调试框架。
 
 约束：
 
@@ -31,7 +31,7 @@
 - `.claude/settings.json` 中即使预配置了 `MCP` server，也只表示可选接入面，不改变 Claude Code 默认的 local-first `CLI` 入口。
 - Claude hooks 使用 string `matcher`；文件路径过滤由共享 hook dispatcher 读取 hook payload 后自行判断，不在 settings.json 里写 object matcher。
 - 未提供可导入的 `.rdc` 时，Agent 必须以 `BLOCKED_MISSING_CAPTURE` 直接阻断，不得初始化 case/run 或继续 triage、investigation、planning。
-- `workspace/` 预生成空骨架；真实运行产物只在被接受的 `rdc-debugger -> team_lead` intake 流程中按 case/run 写入。
+- `workspace/` 预生成空骨架；真实运行产物只在被接受的手动 `rdc-debugger` intake 流程中按 case/run 写入。
 - standalone `capture open` 只建立 tools-layer session state，不会创建 framework `workspace/case/run`。
 - 维护者若重跑 scaffold，必须继续产出 platform-local `common/` 最小占位目录，不得回退到跨级引用。
 - native hooks 会阻断未通过 gate 的结案；同时仍要求生成 `artifacts/run_compliance.yaml` 作为统一合规裁决。

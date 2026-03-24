@@ -49,77 +49,61 @@
     "write_and_stop_gate": ["write_bugcard", "write_skeptic", "stop_gate"]
   },
   "roles": {
-    "team_lead": {
-      "model_profile": "orchestrator",
-      "tool_policy": "coordination_only",
-      "hook_policy": "none",
-      "write_scopes": ["workspace_control"],
-      "delegates_to": [
-        "triage_agent",
-        "capture_repro_agent",
-        "pass_graph_pipeline_agent",
-        "pixel_forensics_agent",
-        "shader_ir_agent",
-        "driver_device_agent",
-        "skeptic_agent",
-        "curator_agent"
-      ]
-    },
     "triage_agent": {
       "model_profile": "investigator",
       "tool_policy": "taxonomy",
       "hook_policy": "none",
       "write_scopes": ["workspace_notes"],
-      "delegates_to": ["team_lead"]
+      "delegates_to": ["rdc-debugger"]
     },
     "capture_repro_agent": {
       "model_profile": "investigator",
       "tool_policy": "investigation",
       "hook_policy": "none",
       "write_scopes": ["workspace_notes"],
-      "delegates_to": ["team_lead"]
+      "delegates_to": ["rdc-debugger"]
     },
     "pass_graph_pipeline_agent": {
       "model_profile": "investigator",
       "tool_policy": "investigation",
       "hook_policy": "none",
       "write_scopes": ["workspace_notes"],
-      "delegates_to": ["team_lead"]
+      "delegates_to": ["rdc-debugger"]
     },
     "pixel_forensics_agent": {
       "model_profile": "investigator",
       "tool_policy": "investigation",
       "hook_policy": "none",
       "write_scopes": ["workspace_notes"],
-      "delegates_to": ["team_lead"]
+      "delegates_to": ["rdc-debugger"]
     },
     "shader_ir_agent": {
       "model_profile": "investigator",
       "tool_policy": "investigation",
       "hook_policy": "none",
       "write_scopes": ["workspace_notes"],
-      "delegates_to": ["team_lead"]
+      "delegates_to": ["rdc-debugger"]
     },
     "driver_device_agent": {
       "model_profile": "investigator",
       "tool_policy": "investigation",
       "hook_policy": "none",
       "write_scopes": ["workspace_notes"],
-      "delegates_to": ["team_lead"]
+      "delegates_to": ["rdc-debugger"]
     },
     "skeptic_agent": {
       "model_profile": "verifier",
       "tool_policy": "review_only",
       "hook_policy": "none",
       "write_scopes": ["session_signoff"],
-      "delegates_to": ["team_lead"]
+      "delegates_to": ["rdc-debugger"]
     },
     "curator_agent": {
       "model_profile": "reporter",
       "tool_policy": "curation",
       "hook_policy": "write_and_stop_gate",
       "write_scopes": ["workspace_reports", "session_artifacts", "knowledge_library"],
-      "delegates_to": ["team_lead"]
+      "delegates_to": ["rdc-debugger"]
     }
   }
 }

@@ -29,8 +29,8 @@
 
 强制规则：
 
-- 正常用户入口只有 `rdc-debugger`
-- `team_lead` 与其他 specialist 默认是 internal/debug-only，由 `rdc-debugger` 完成用户侧入口与 handoff
+- 平台启动后默认保持普通对话态；只有用户手动召唤 `rdc-debugger`，才进入 RenderDoc/RDC GPU Debug 调试框架
+- 除 `rdc-debugger` 之外，其他 specialist 默认都是 internal/debug-only，只能由 `rdc-debugger` 在框架内分派
 - 用户尚未提供可导入的 `.rdc` 时，必须以 `BLOCKED_MISSING_CAPTURE` 停止，不得初始化 case/run 或继续做 debug、investigation、tool planning
 
 未先将 `debugger/common/` 整包覆盖到平台根 `common/`、且将 RDC-Agent-Tools 整包覆盖到平台根 `tools/` 之前，不允许在宿主中使用当前平台模板。
@@ -44,10 +44,10 @@
 
 规则：
 
-- `team_lead` 是唯一的 runtime_owner，负责所有 agent 分派与工具执行；public main skill 仍然是 `rdc-debugger`。
+- `rdc-debugger` 是唯一的 runtime_owner，负责所有 agent 分派与工具执行；public main skill 仍然是 `rdc-debugger`。
 - Specialist sub-agents 只能通过 workspace artifacts 传递调查结果，不得直接调用或消息通知其他 specialist。
-- 所有跨 agent 信息传递路径：sub-agent 将结果写入 `workspace/cases/<case_id>/runs/<run_id>/` 指定位置 → `team_lead` 读取后决定下一步分派。
-- Specialist 不得直接分派其他 specialist，所有分派必须经由 `team_lead`。
-- 标准分派顺序：`team_lead` → `triage_agent` → `capture_repro_agent` → 专家 specialists（`pixel_forensics`、`pass_graph_pipeline`、`shader_ir`、`driver_device`）→ `skeptic_agent` → `curator_agent`。
+- 所有跨 agent 信息传递路径：sub-agent 将结果写入 `workspace/cases/<case_id>/runs/<run_id>/` 指定位置 → `rdc-debugger` 读取后决定下一步分派。
+- Specialist 不得直接分派其他 specialist，所有分派必须经由 `rdc-debugger`。
+- 标准分派顺序：`rdc-debugger` → `triage_agent` → `capture_repro_agent` → 专家 specialists（`pixel_forensics`、`pass_graph_pipeline`、`shader_ir`、`driver_device`）→ `skeptic_agent` → `curator_agent`。
 
 权威规范：参见 `common/docs/runtime-coordination-model.md` 中 `staged_handoff` 模式定义。

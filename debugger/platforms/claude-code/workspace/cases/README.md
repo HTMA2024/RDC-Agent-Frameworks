@@ -29,4 +29,5 @@ cases/
 - `case_id` 是问题实例/需求线程的稳定标识。
 - `run_id` 承担 debug version。
 - 原始 `.rdc` 只允许落在 `inputs/captures/`；run 只保留 capture 引用与派生产物。
+- standalone `capture open` 不会创建这里的 case/run；这里只承载 accepted agent-flow intake 之后的 workspace state。
 - 第一层 session artifacts 仍写入同级 `common/knowledge/library/sessions/`；`workspace/` 不复制 gate 真相。

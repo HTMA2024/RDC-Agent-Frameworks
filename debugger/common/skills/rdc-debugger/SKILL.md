@@ -147,6 +147,36 @@ description: Public main skill for the RenderDoc/RDC GPU debugger framework. Use
 - 只输出缺失项与补齐动作
 - 不替用户模拟已完成的 binding 结果
 
+#### 2.1 Minimal Non-Interactive Preflight
+
+When the host is running a non-interactive prompt such as `claude -p`, or the prompt explicitly asks for a smoke-style readiness check, you may use `preflight_mode: minimal_non_interactive`.
+
+In `minimal_non_interactive` mode, stop after:
+
+- `intent_gate`
+- setup verification
+- capture presence check
+- entry mode declaration
+- bounded readiness output
+
+Do not do any of the following in `minimal_non_interactive` mode:
+
+- deep analysis
+- specialist dispatch
+- `team_lead` handoff
+- `case/run` creation
+- `workspace/` writes
+
+Recommended bounded readiness output fields:
+
+- `preflight_mode`
+- `intent_gate.decision`
+- `setup_status`
+- `capture_status`
+- `entry_mode`
+- `readiness`
+- `next_blocker`
+
 ### 3. Intake Completeness
 
 你必须显式检查以下输入是否齐备：
@@ -167,6 +197,8 @@ description: Public main skill for the RenderDoc/RDC GPU debugger framework. Use
 - 补料阶段的动态状态只存在于当前会话 / 主面板，不落盘到 `workspace/`
 
 ### 4. Handoff Gate
+
+Only after this full handoff gate is satisfied may `team_lead` initialize `workspace/case/run`.
 
 只有当以下条件同时满足时，你才可以把任务交给 `team_lead`：
 

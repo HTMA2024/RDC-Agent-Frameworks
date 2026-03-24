@@ -6,6 +6,29 @@
 
 `rdc-debugger` 负责在 `team_lead` 之前做 preflight 与补料；`team_lead` 只在 handoff 条件满足后接手正式 intake 规范化。
 
+## 0A. Minimal Non-Interactive Preflight
+
+When the host is running a non-interactive prompt such as `claude -p`, or the prompt only asks for a smoke-style readiness check, `rdc-debugger` may use `preflight_mode: minimal_non_interactive`.
+
+`minimal_non_interactive` mode must:
+
+- stop after `intent_gate`
+- stop after setup verification
+- stop after capture presence check
+- declare the chosen entry mode
+- return bounded readiness output
+
+`minimal_non_interactive` mode must not:
+
+- normalize full intake
+- dispatch specialists
+- create `case/run`
+- write `case_input.yaml`
+- write `hypothesis_board.yaml`
+- hand off to `team_lead`
+
+Full `case/run` creation remains gated on accepted intake plus `team_lead`.
+
 ## 0. Framework Intent Gate
 
 所有请求在进入 debugger-specific preflight、capture intake、case/run 初始化之前，必须先由 `rdc-debugger` 做 `intent_gate`。

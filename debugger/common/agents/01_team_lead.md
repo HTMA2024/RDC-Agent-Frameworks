@@ -268,6 +268,30 @@ session_status:
   next_actions: []
 ```
 
+## Immediate Case/Run Initialization
+
+Initialization gate:
+
+- `intent_gate.decision = debugger`
+- preflight passed
+- at least one `.rdc` exists
+- `session.goal` is normalized
+
+Once this gate is satisfied, initialize `case/run` immediately before any specialist dispatch.
+
+Required files:
+
+- `../workspace/cases/<case_id>/case.yaml`
+- `../workspace/cases/<case_id>/case_input.yaml`
+- `../workspace/cases/<case_id>/runs/<run_id>/run.yaml`
+- `../workspace/cases/<case_id>/runs/<run_id>/capture_refs.yaml`
+- `../workspace/cases/<case_id>/runs/<run_id>/notes/hypothesis_board.yaml`
+
+Clarification:
+
+- standalone tools-layer `capture open` is not sufficient to create framework workspace state
+- full `workspace/case/run` creation belongs to accepted intake plus `team_lead`
+
 ## Session Artifact Contract
 
 结案前，Team Lead 必须强制满足以下 artifact contract：

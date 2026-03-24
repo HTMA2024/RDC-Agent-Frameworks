@@ -56,6 +56,32 @@ class RepoBaselineValidationTests(unittest.TestCase):
         ):
             self.assertIn(marker, text)
 
+    def test_rdc_debugger_docs_declare_minimal_noninteractive_preflight(self) -> None:
+        skill_text = (DEBUGGER_ROOT / "common" / "skills" / "rdc-debugger" / "SKILL.md").read_text(encoding="utf-8-sig")
+        intake_text = (DEBUGGER_ROOT / "common" / "docs" / "intake" / "README.md").read_text(encoding="utf-8-sig")
+
+        for marker in (
+            "minimal_non_interactive",
+            "claude -p",
+            "bounded readiness output",
+            "case/run",
+            "team_lead",
+        ):
+            self.assertIn(marker, skill_text)
+            self.assertIn(marker, intake_text)
+
+    def test_team_lead_contract_requires_immediate_case_run_initialization(self) -> None:
+        text = (DEBUGGER_ROOT / "common" / "agents" / "01_team_lead.md").read_text(encoding="utf-8-sig")
+        for marker in (
+            "Immediate Case/Run Initialization",
+            "`intent_gate.decision = debugger`",
+            "preflight passed",
+            "`session.goal` is normalized",
+            "standalone tools-layer `capture open` is not sufficient",
+            "../workspace/cases/<case_id>/runs/<run_id>/notes/hypothesis_board.yaml",
+        ):
+            self.assertIn(marker, text)
+
     def test_scaffold_expected_paths_cover_cursor(self) -> None:
         scaffold = _load_module(DEBUGGER_ROOT / "scripts" / "sync_platform_scaffolds.py", "sync_platform_scaffolds_module")
         ctx = scaffold.load_context(DEBUGGER_ROOT)
@@ -115,6 +141,24 @@ class RepoBaselineValidationTests(unittest.TestCase):
         )
         self.assertEqual(compliance.get("entry_model", {}).get("public_entry_skill"), "rdc-debugger")
         self.assertEqual(compliance.get("entry_model", {}).get("orchestration_role"), "team_lead")
+
+    def test_claude_code_docs_keep_cli_as_default_entry(self) -> None:
+        readme = (DEBUGGER_ROOT / "platforms" / "claude-code" / "README.md").read_text(encoding="utf-8-sig")
+        agents = (DEBUGGER_ROOT / "platforms" / "claude-code" / "AGENTS.md").read_text(encoding="utf-8-sig")
+        entry = (DEBUGGER_ROOT / "platforms" / "claude-code" / ".claude" / "CLAUDE.md").read_text(encoding="utf-8-sig")
+
+        self.assertIn("默认入口是 daemon-backed `CLI`", readme)
+        self.assertIn("Claude Code 默认入口是 local-first `CLI`", agents)
+        self.assertIn("default entry mode is local-first `CLI`", entry)
+        self.assertIn("switch to `MCP` only when the user explicitly asks", entry)
+
+    def test_claude_code_workspace_docs_do_not_claim_capture_open_creates_case_run(self) -> None:
+        workspace_text = (DEBUGGER_ROOT / "platforms" / "claude-code" / "workspace" / "README.md").read_text(encoding="utf-8-sig")
+        cases_text = (DEBUGGER_ROOT / "platforms" / "claude-code" / "workspace" / "cases" / "README.md").read_text(encoding="utf-8-sig")
+
+        self.assertIn("standalone `capture open`", workspace_text)
+        self.assertIn("accepted `rdc-debugger -> team_lead` intake", workspace_text)
+        self.assertIn("standalone `capture open`", cases_text)
 
     def test_claude_code_agent_frontmatter_has_names_and_descriptions(self) -> None:
         manifest = json.loads((DEBUGGER_ROOT / "common" / "config" / "role_manifest.json").read_text(encoding="utf-8-sig"))

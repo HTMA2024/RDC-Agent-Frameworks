@@ -32,6 +32,8 @@
 - 未提供可导入的 `.rdc` 时，Agent 必须以 `BLOCKED_MISSING_CAPTURE` 直接阻断，不得初始化 case/run 或继续 triage、investigation、planning。
 - `workspace/` 预生成空骨架；真实运行产物在平台使用阶段按 case/run 写入。
 - remote / live bridge / rehydrate 当前只保留为 `experimental` 协作路径；除非另有平台级验证说明，否则它不属于当前正式支持能力。
+- 如果维护者刻意复核 Android remote-only 路径，当前平台应优先走 daemon-backed `CLI`，并使用 `tools/scripts/tool_contract_remote_smoke.py --rdc "<sample.rdc>" --transport daemon`。
+- 截至 2026-03-25，package-local `tools/` 的 Android remote-only daemon 路径已有最新 smoke 结果；但 `MCP` remote-only 仍未收敛，因此 Codex 平台不应把 `MCP` remote Android 标记成“当前已验证入口”。
 - 当前宿主没有 native hooks；只有生成 `artifacts/run_compliance.yaml` 且 `status=passed` 后，结案才算合规。
 
 Sub-Agent 工作模型：

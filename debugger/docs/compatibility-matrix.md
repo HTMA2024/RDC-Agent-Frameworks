@@ -20,7 +20,9 @@
 - `debugger` 文档中涉及探索面时，应按“只读 VFS + canonical `rd.*` tools”口径编写，不得把 `rd.vfs.*` 写成第二套平台真相。
 - `tabular/tsv` 只能按 projection/support surface 描述，不得写成独立能力面或重要度排序结果。
 - `platform_adapter.json` 必须保持 `paths.tools_source_root="tools"` 且 `runtime.mode="worker_staged"`；不再支持手工配置绝对路径、live runtime 目录或占位值替换。
-- 当前已验证的配对范围是 package-local `tools/` + local-first flow；remote workflow 本轮未重新验证。
+- 当前已验证的配对范围包括 package-local `tools/` + local-first flow，以及 Android remote-only daemon flow。
+- Android remote-only 的正式复核入口优先使用 `tools/scripts/tool_contract_remote_smoke.py --rdc "<sample.rdc>" --transport daemon`。
+- 截至 2026-03-25，daemon remote-only 最佳已知结果为 `171 pass / 15 scope_skip / 4 blocker`；`MCP` remote-only 仍未收敛，当前不纳入“已验证兼容”口径。
 
 ## 接线前必跑
 

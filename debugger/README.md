@@ -20,10 +20,9 @@
 - source repo 中的 `tools/` 仍是平台模板占位目录；正式工具真相只来自复制后的平台包根目录 `tools/`。
 - `rd.vfs.*` 是只读导航层，用于 browse-only 结构探索；精确调试、导出与状态变更必须回到 canonical `rd.*`。
 - `tabular/tsv` 只是 projection/summary 格式，用于提升扫描效率，不表示语义重要度排序。
-- 当前已重新验证的闭环包括 package-local `tools/` + local-first 工具链，以及 Android remote-only 的 daemon 路径。
-- 若维护者需要对 package-local `tools/` 重新跑 Android remote-only 全量 smoke，优先使用 `tools/scripts/tool_contract_remote_smoke.py --rdc "<sample.rdc>" --transport daemon`。
-- 截至 2026-03-25，Android remote-only daemon 全量 smoke 的最佳已知结果是 `171 pass / 15 scope_skip / 4 blocker`；稳定 truth blocker 仍包含 `rd.shader.debug_start` 的 same-event truthful failure。
-- 截至 2026-03-25，`MCP` remote-only 路径仍未收敛；已知主问题是 `rd.remote.connect` 经过 `MCP -> daemon` proxy 时会超时，因此 framework 不得把当前 `MCP` remote Android 路径写成“已验证可用”。
+- 当前已重新验证的闭环包括 package-local `tools/` + local-first 工具链，以及 Android remote-only 的 daemon / `MCP` 最小 bootstrap 主链：`rd.remote.connect -> rd.remote.ping -> rd.capture.open_replay`。
+- 若维护者需要对 package-local `tools/` 复核 Android remote-only truth，优先使用 `tools/scripts/tool_contract_remote_smoke.py --rdc "<sample.rdc>" --transport daemon|mcp`，并以最新 `tools/intermediate/logs/tool_contract_remote_smoke_*.json/.md` 为准。
+- 历史 smoke 统计值只可作为回归背景，不得继续写成当前 truth；尤其不能再把“`MCP` remote Android 必然超时”写成平台事实。
 
 未完成以上步骤前：
 

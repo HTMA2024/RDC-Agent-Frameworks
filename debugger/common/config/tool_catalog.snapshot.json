@@ -2152,8 +2152,8 @@
       "name": "rd.shader.edit_and_replace",
       "group": "3.8，Shader 探查、反射与替换 (Shader Inspection & Replacement)",
       "description": "??? event ????? shader ????? runtime replacement????? `BuildTargetShader` ???? `ShaderCompileFlags`???? replay backend ??????/?????????? capability / runtime ???????????",
-      "parameter_raw": "session_id (str)<br>stage (str): `'VS'|'HS'|'DS'|'GS'|'PS'|'CS'|'MS'|'AS'`<br>event_id (int, ??): ????? active event??????? canonical event<br>shader_id (str, ??): ???????? event ????? shader ??<br>ops (list): `PatchSpec/PatchOp` ??????????????<br>replacement_id (str, ??)<br>intent (str, ??)<br>max_diff_ops (int, ??, ?? 20)<br>preserve_outputs (bool, ??, ?? true)",
-      "returns_raw": "ok (bool)<br>data (dict): {replacement_id, status='applied', resolved_event_id, messages, replacement}<br>artifacts (list)<br>error (dict|null): backend ????????????? capability / runtime ??????????? `error.details` ??? `compile_flags` / `compiler_output` ???????? `mock_applied`<br>meta (dict)<br>projections (dict, ??)",
+      "parameter_raw": "session_id (str)<br>stage (str): 'VS'|'HS'|'DS'|'GS'|'PS'|'CS'|'MS'|'AS'<br>event_id (int, optional): defaults to the current active event and is resolved to a canonical event internally<br>shader_id (str, optional): if provided it must match the shader currently bound at that event and stage<br>ops (list): non-empty `PatchSpec/PatchOp` style patch operation list; `replace_expr` supports exact line-level, fragment-level, and multiline text replacement<br>replacement_id (str, optional)<br>intent (str, optional)<br>max_diff_ops (int, optional, default 20)<br>preserve_outputs (bool, optional, default true)<br>emit_patch_artifacts (bool, optional, default false): export before/after/diff text artifacts<br>output_dir (str, optional): when set, also save before/after/diff text files under this directory",
+      "returns_raw": "ok (bool)<br>data (dict): {replacement_id, status='applied'|'noop', resolved_event_id, messages, replacement{compile?, artifacts?}}<br>artifacts (list): when `emit_patch_artifacts=true` or `output_dir` is provided, includes before/after/diff text artifacts<br>error (dict|null): explicit capability/runtime error when the backend does not support replacement or when build/bind/apply fails; compile-related failures include `compile_flags` / `compiler_output` in `error.details` instead of returning `mock_applied`<br>meta (dict)<br>projections (dict, optional)",
       "param_names": [
         "session_id",
         "stage",
@@ -2163,7 +2163,9 @@
         "replacement_id",
         "intent",
         "max_diff_ops",
-        "preserve_outputs"
+        "preserve_outputs",
+        "emit_patch_artifacts",
+        "output_dir"
       ],
       "prerequisites": [
         {
@@ -2242,10 +2244,12 @@
       "name": "rd.shader.compile",
       "group": "3.8，Shader 探查、反射与替换 (Shader Inspection & Replacement)",
       "description": "（可选扩展）在 server 侧调用外部编译器（dxc/glslangValidator/metal）编译 shader，返回 binary 路径；用于构建替换输入。",
-      "parameter_raw": "source (str): HLSL/GLSL/MSL 源码<br>stage (str)<br>entry (str)<br>target (str): 例如 'vs_6_6'/'ps_6_6' 或 'spirv1.6'<br>defines (dict, 可选)<br>include_dirs (list[str], 可选)<br>additional_args (list[str], 可选)<br>output_path (str, 可选)",
-      "returns_raw": "ok (bool)<br>data (dict): {binary_path, stderr}<br>artifacts (list)<br>error (dict|null)<br>meta (dict)<br>projections (dict, 可选)",
+      "parameter_raw": "session_id (str, ??): ?????? context ? current session<br>source (str): HLSL/GLSL/SPIR-V ASM ??<br>source_encoding (str, ??): `hlsl`/`glsl`/`spirvasm`/`dxbc`/`dxil` ?<br>stage (str)<br>entry (str)<br>target (str, ??): ?? source encoding / target family hint<br>defines (dict, ??)<br>include_dirs (list[str], ??)<br>additional_args (list[str], ??)<br>output_path (str, ??)",
+      "returns_raw": "ok (bool)<br>data (dict): {session_id, shader_id, entry, stage, source_encoding, supported_source_encodings, messages, saved_path?, artifact_path?, byte_size?}<br>artifacts (list)<br>error (dict|null)<br>meta (dict)<br>projections (dict, ??)",
       "param_names": [
+        "session_id",
         "source",
+        "source_encoding",
         "stage",
         "entry",
         "target",
@@ -2968,12 +2972,13 @@
       "name": "rd.remote.connect",
       "group": "3.12，远程连接与自动化抓帧 (Remote Capture & Target Control)",
       "description": "连接到远程 RenderDoc server（RDC remote server / target control）。",
-      "parameter_raw": "host (str)<br>port (int, 可选, 默认 38920)<br>timeout_ms (int, 可选, 默认 5000)",
+      "parameter_raw": "host (str)<br>port (int, ??, ?? 38920)<br>timeout_ms (int, ??, ?? 5000)<br>options (dict, ??): {transport?, device_serial?, local_port?, install_apk?, push_config?}",
       "returns_raw": "ok (bool)<br>data (dict): {remote_id, server_info}<br>artifacts (list)<br>error (dict|null)<br>meta (dict)<br>projections (dict, 可选)",
       "param_names": [
         "host",
         "port",
-        "timeout_ms"
+        "timeout_ms",
+        "options"
       ],
       "prerequisites": [
         {

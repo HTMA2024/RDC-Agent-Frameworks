@@ -31,9 +31,9 @@
 - 当前工具 snapshot 必须与 `RDC-Agent-Tools` 当前 catalog 完整对齐，并覆盖 `rd.vfs.*` 导航层、扩展 `rd.session.*`、`rd.core.*` discovery/observability，以及 bounded event-tree 读取语义；其中 `tabular/tsv` 仅作为 projection 支持。
 - 未提供可导入的 `.rdc` 时，Agent 必须以 `BLOCKED_MISSING_CAPTURE` 直接阻断，不得初始化 case/run 或继续 triage、investigation、planning。
 - `workspace/` 预生成空骨架；真实运行产物在平台使用阶段按 case/run 写入。
-- remote / live bridge / rehydrate 当前只保留为 `experimental` 协作路径；除非另有平台级验证说明，否则它不属于当前正式支持能力。
-- 如果维护者刻意复核 Android remote-only 路径，当前平台应优先走 daemon-backed `CLI`，并使用 `tools/scripts/tool_contract_remote_smoke.py --rdc "<sample.rdc>" --transport daemon`。
-- 截至 2026-03-25，package-local `tools/` 的 Android remote-only daemon 路径已有最新 smoke 结果；但 `MCP` remote-only 仍未收敛，因此 Codex 平台不应把 `MCP` remote Android 标记成“当前已验证入口”。
+- remote / live bridge / rehydrate 仍属于需要显式验证的协作路径，但不能再默认写成 “`MCP` remote Android 一定不可用”。
+- 如果维护者刻意复核 Android remote-only 路径，当前平台应优先走 daemon-backed `CLI`，并使用 `tools/scripts/tool_contract_remote_smoke.py --rdc "<sample.rdc>" --transport daemon|mcp`。
+- 对 Codex 平台，Android remote-only 的完整 truth 以最新 smoke 报告为准；最小 `MCP` bootstrap 主链已应被视为可验证路径，而不是默认超时路径。
 - 当前宿主没有 native hooks；只有生成 `artifacts/run_compliance.yaml` 且 `status=passed` 后，结案才算合规。
 
 Sub-Agent 工作模型：

@@ -16,6 +16,9 @@ except ModuleNotFoundError as exc:  # pragma: no cover
 REPO_ROOT = Path(__file__).resolve().parents[2]
 DEBUGGER_ROOT = REPO_ROOT / "debugger"
 AUDIT_SCRIPT = DEBUGGER_ROOT / "common" / "hooks" / "utils" / "run_compliance_audit.py"
+ENTRY_GATE_SCRIPT = DEBUGGER_ROOT / "common" / "hooks" / "utils" / "entry_gate.py"
+INTAKE_GATE_SCRIPT = DEBUGGER_ROOT / "common" / "hooks" / "utils" / "intake_gate.py"
+TOPOLOGY_SCRIPT = DEBUGGER_ROOT / "common" / "hooks" / "utils" / "runtime_topology.py"
 
 
 def _write(path: Path, text: str) -> None:
@@ -38,6 +41,7 @@ def _seed_base(root: Path) -> None:
     for rel in (
         Path("common/config/framework_compliance.json"),
         Path("common/config/platform_capabilities.json"),
+        Path("common/config/runtime_mode_truth.snapshot.json"),
         Path("common/knowledge/spec/README.md"),
         Path("common/knowledge/spec/registry/active_manifest.yaml"),
         Path("common/knowledge/spec/registry/spec_registry.yaml"),
@@ -58,11 +62,43 @@ def _seed_base(root: Path) -> None:
         shutil.copy2(DEBUGGER_ROOT / rel, target)
 
 
+def _rt_payload(
+    *,
+    entry_mode: str = "cli",
+    backend: str = "local",
+    context_id: str = "ctx-default",
+    runtime_owner: str = "rdc-debugger",
+    baton_ref: str = "",
+    **extra: object,
+) -> dict[str, object]:
+    return {
+        "entry_mode": entry_mode,
+        "backend": backend,
+        "context_id": context_id,
+        "runtime_owner": runtime_owner,
+        "baton_ref": baton_ref,
+        **extra,
+    }
+
+
 def _base_action_chain(session_id: str, run_id: str, *, case_id: str = "case_001", reviewer: str = "skeptic_agent") -> list[dict]:
     return [
         {
             "schema_version": "2",
-            "event_id": "evt-0001-dispatch",
+            "event_id": "evt-0001-intake-gate",
+            "ts_ms": 1772537599900,
+            "run_id": run_id,
+            "session_id": session_id,
+            "agent_id": "rdc-debugger",
+            "event_type": "quality_check",
+            "status": "pass",
+            "duration_ms": 0,
+            "refs": [],
+            "payload": _rt_payload(validator="intake_gate", summary="run intake gate passed"),
+        },
+        {
+            "schema_version": "2",
+            "event_id": "evt-0002-dispatch",
             "ts_ms": 1772537600000,
             "run_id": run_id,
             "session_id": session_id,
@@ -71,11 +107,16 @@ def _base_action_chain(session_id: str, run_id: str, *, case_id: str = "case_001
             "status": "sent",
             "duration_ms": 15,
             "refs": [],
-            "payload": {"target_agent": "triage_agent", "objective": "triage precision issue"},
+            "payload": _rt_payload(
+                context_id="ctx-orchestrator",
+                runtime_owner="rdc-debugger",
+                target_agent="pixel_forensics_agent",
+                objective="inspect the anomalous hotspot",
+            ),
         },
         {
             "schema_version": "2",
-            "event_id": "evt-0002-tool",
+            "event_id": "evt-0003-tool",
             "ts_ms": 1772537600500,
             "run_id": run_id,
             "session_id": session_id,
@@ -83,12 +124,35 @@ def _base_action_chain(session_id: str, run_id: str, *, case_id: str = "case_001
             "event_type": "tool_execution",
             "status": "ok",
             "duration_ms": 120,
-            "refs": ["evt-0001-dispatch"],
-            "payload": {"tool_name": "rd.debug.pixel_history", "transport": "daemon"},
+            "refs": ["evt-0002-dispatch"],
+            "payload": _rt_payload(
+                context_id="ctx-pixel",
+                runtime_owner="pixel_forensics_agent",
+                tool_name="rd.debug.pixel_history",
+                transport="daemon",
+            ),
         },
         {
             "schema_version": "2",
-            "event_id": "evt-0003-hypothesis",
+            "event_id": "evt-0004-specialist-artifact",
+            "ts_ms": 1772537600750,
+            "run_id": run_id,
+            "session_id": session_id,
+            "agent_id": "pixel_forensics_agent",
+            "event_type": "artifact_write",
+            "status": "written",
+            "duration_ms": 12,
+            "refs": ["evt-0003-tool"],
+            "payload": _rt_payload(
+                context_id="ctx-pixel",
+                runtime_owner="pixel_forensics_agent",
+                path=f"workspace/cases/{case_id}/runs/{run_id}/notes/pixel_forensics.md",
+                artifact_role="specialist_handoff",
+            ),
+        },
+        {
+            "schema_version": "2",
+            "event_id": "evt-0005-hypothesis",
             "ts_ms": 1772537600900,
             "run_id": run_id,
             "session_id": session_id,
@@ -96,7 +160,7 @@ def _base_action_chain(session_id: str, run_id: str, *, case_id: str = "case_001
             "event_type": "hypothesis_transition",
             "status": "applied",
             "duration_ms": 20,
-            "refs": ["evt-0002-tool"],
+            "refs": ["evt-0003-tool"],
             "payload": {
                 "hypothesis_id": "H-001",
                 "from_state": "OPEN",
@@ -106,7 +170,7 @@ def _base_action_chain(session_id: str, run_id: str, *, case_id: str = "case_001
         },
         {
             "schema_version": "2",
-            "event_id": "evt-0004-conflict-open",
+            "event_id": "evt-0006-conflict-open",
             "ts_ms": 1772537601200,
             "run_id": run_id,
             "session_id": session_id,
@@ -119,14 +183,14 @@ def _base_action_chain(session_id: str, run_id: str, *, case_id: str = "case_001
                 "conflict_id": "CONFLICT-001",
                 "hypothesis_id": "H-001",
                 "positions": [
-                    {"agent_id": "shader_ir_agent", "stance": "support", "evidence_refs": ["evt-0002-tool"]},
-                    {"agent_id": "driver_device_agent", "stance": "refute", "evidence_refs": ["evt-0003-hypothesis"]},
+                    {"agent_id": "shader_ir_agent", "stance": "support", "evidence_refs": ["evt-0003-tool"]},
+                    {"agent_id": "driver_device_agent", "stance": "refute", "evidence_refs": ["evt-0005-hypothesis"]},
                 ],
             },
         },
         {
             "schema_version": "2",
-            "event_id": "evt-0005-conflict-resolved",
+            "event_id": "evt-0007-conflict-resolved",
             "ts_ms": 1772537601500,
             "run_id": run_id,
             "session_id": session_id,
@@ -145,7 +209,7 @@ def _base_action_chain(session_id: str, run_id: str, *, case_id: str = "case_001
         },
         {
             "schema_version": "2",
-            "event_id": "evt-0006-counterfactual-submit",
+            "event_id": "evt-0008-counterfactual-submit",
             "ts_ms": 1772537602200,
             "run_id": run_id,
             "session_id": session_id,
@@ -153,7 +217,7 @@ def _base_action_chain(session_id: str, run_id: str, *, case_id: str = "case_001
             "event_type": "counterfactual_submitted",
             "status": "submitted",
             "duration_ms": 140,
-            "refs": ["evt-0002-tool", "H-001"],
+            "refs": ["evt-0003-tool", "H-001"],
             "payload": {
                 "review_id": "CF-001",
                 "hypothesis_id": "H-001",
@@ -188,12 +252,12 @@ def _base_action_chain(session_id: str, run_id: str, *, case_id: str = "case_001
                     "symptom_coverage": 1.0,
                     "total": 0.97,
                 },
-                "evidence_refs": ["evt-0002-tool", "evt-0005-conflict-resolved"],
+                "evidence_refs": ["evt-0003-tool", "evt-0007-conflict-resolved"],
             },
         },
         {
             "schema_version": "2",
-            "event_id": "evt-0007-counterfactual-review",
+            "event_id": "evt-0009-counterfactual-review",
             "ts_ms": 1772537602500,
             "run_id": run_id,
             "session_id": session_id,
@@ -201,19 +265,19 @@ def _base_action_chain(session_id: str, run_id: str, *, case_id: str = "case_001
             "event_type": "counterfactual_reviewed",
             "status": "approved",
             "duration_ms": 60,
-            "refs": ["CF-001", "evt-0006-counterfactual-submit"],
+            "refs": ["CF-001", "evt-0008-counterfactual-submit"],
             "payload": {
                 "review_id": "CF-001",
                 "hypothesis_id": "H-001",
                 "reviewer_agent": reviewer,
                 "semantic_verdict": "strict_pass",
                 "isolation_verdict": {"verdict": "isolated", "rationale": "all isolation checks passed"},
-                "evidence_refs": ["evt-0006-counterfactual-submit", "evt-0002-tool"],
+                "evidence_refs": ["evt-0008-counterfactual-submit", "evt-0003-tool"],
             },
         },
         {
             "schema_version": "2",
-            "event_id": "evt-0008-artifact",
+            "event_id": "evt-0010-artifact",
             "ts_ms": 1772537602800,
             "run_id": run_id,
             "session_id": session_id,
@@ -221,11 +285,13 @@ def _base_action_chain(session_id: str, run_id: str, *, case_id: str = "case_001
             "event_type": "artifact_write",
             "status": "written",
             "duration_ms": 10,
-            "refs": ["evt-0007-counterfactual-review"],
-            "payload": {
-                "path": f"common/knowledge/library/sessions/{session_id}/session_evidence.yaml",
-                "artifact_role": "adjudicated_snapshot",
-            },
+            "refs": ["evt-0009-counterfactual-review"],
+            "payload": _rt_payload(
+                context_id="ctx-curator",
+                runtime_owner="curator_agent",
+                path=f"workspace/cases/{case_id}/runs/{run_id}/reports/report.md",
+                artifact_role="workspace_report",
+            ),
         },
     ]
 
@@ -239,7 +305,7 @@ def _seed_common_session(
     reviewer: str = "skeptic_agent",
     conflict_status: str = "ARBITRATED",
     hypothesis_status: str = "VALIDATED",
-    review_event_id: str = "evt-0007-counterfactual-review",
+    review_event_id: str = "evt-0009-counterfactual-review",
 ) -> None:
     sessions_root = root / "common" / "knowledge" / "library" / "sessions"
     sessions_root.mkdir(parents=True, exist_ok=True)
@@ -267,7 +333,7 @@ def _seed_common_session(
             "ref": "event:523",
             "established_by": "pixel_forensics_agent",
             "justification": "fixture anchor",
-            "evidence_refs": ["evt-0002-tool"],
+            "evidence_refs": ["evt-0003-tool"],
         },
         "reference_contract": {
             "ref": f"../workspace/cases/{case_id}/case_input.yaml#reference_contract",
@@ -287,7 +353,7 @@ def _seed_common_session(
                 "status": hypothesis_status,
                 "title": "precision regression",
                 "lead_agent": "shader_ir_agent",
-                "evidence_refs": ["evt-0002-tool", "evt-0007-counterfactual-review"],
+                "evidence_refs": ["evt-0003-tool", "evt-0009-counterfactual-review"],
                 "conflict_ids": ["CONFLICT-001"],
             }
         ],
@@ -298,11 +364,11 @@ def _seed_common_session(
                 "status": conflict_status,
                 "opened_at_ms": 1772537601200,
                 "resolved_at_ms": 1772537601500,
-                "opened_by_event": "evt-0004-conflict-open",
-                "resolved_by_event": "evt-0005-conflict-resolved",
+                "opened_by_event": "evt-0006-conflict-open",
+                "resolved_by_event": "evt-0007-conflict-resolved",
                 "positions": [
-                    {"agent_id": "shader_ir_agent", "stance": "support", "evidence_refs": ["evt-0002-tool"]},
-                    {"agent_id": "driver_device_agent", "stance": "refute", "evidence_refs": ["evt-0003-hypothesis"]},
+                    {"agent_id": "shader_ir_agent", "stance": "support", "evidence_refs": ["evt-0003-tool"]},
+                    {"agent_id": "driver_device_agent", "stance": "refute", "evidence_refs": ["evt-0005-hypothesis"]},
                 ],
                 "arbitration": {
                     "reviewer_agent": "skeptic_agent",
@@ -318,13 +384,13 @@ def _seed_common_session(
                 "proposer_agent": "shader_ir_agent",
                 "reviewer_agent": reviewer,
                 "status": "approved",
-                "submission_event_id": "evt-0006-counterfactual-submit",
+                "submission_event_id": "evt-0008-counterfactual-submit",
                 "review_event_id": review_event_id,
-                "evidence_refs": ["evt-0002-tool", "evt-0006-counterfactual-submit"],
+                "evidence_refs": ["evt-0003-tool", "evt-0008-counterfactual-submit"],
             }
         ],
         "knowledge_candidates": [],
-        "evidence_refs": ["evt-0002-tool", "evt-0005-conflict-resolved", "evt-0007-counterfactual-review"],
+        "evidence_refs": ["evt-0003-tool", "evt-0007-conflict-resolved", "evt-0009-counterfactual-review"],
         "store_contract": {
             "ledger_artifact": "action_chain.jsonl",
             "snapshot_artifact": "session_evidence.yaml",
@@ -360,6 +426,35 @@ def _seed_common_session(
         }
     ]
     _write(sessions_root / session_id / "skeptic_signoff.yaml", yaml.safe_dump(signoff, sort_keys=False, allow_unicode=True))
+
+
+def _seed_intake_gate(root: Path, run_root: Path) -> None:
+    module = _load_module(INTAKE_GATE_SCRIPT, f"intake_gate_module_{run_root.name}")
+    module.run_intake_gate(root, run_root)
+
+
+def _seed_entry_gate(root: Path, run_root: Path, *, platform: str, entry_mode: str = "cli", backend: str = "local") -> None:
+    module = _load_module(ENTRY_GATE_SCRIPT, f"entry_gate_module_{run_root.name}_{platform}")
+    case_root = run_root.parent.parent
+    capture_paths = [
+        str((case_root / "inputs" / "captures" / "broken.rdc").resolve()),
+        str((case_root / "inputs" / "captures" / "good.rdc").resolve()),
+    ]
+    module.run_entry_gate(
+        root,
+        case_root,
+        platform=platform,
+        entry_mode=entry_mode,
+        backend=backend,
+        capture_paths=capture_paths,
+        mcp_configured=entry_mode == "cli",
+        remote_transport="adb_android" if backend == "remote" else "",
+    )
+
+
+def _seed_runtime_topology(root: Path, run_root: Path, *, platform: str) -> None:
+    module = _load_module(TOPOLOGY_SCRIPT, f"runtime_topology_module_{run_root.name}_{platform}")
+    module.run_runtime_topology(root, run_root, platform=platform)
 
 
 def _seed_run(
@@ -409,6 +504,39 @@ def _seed_run(
     }
     _write(case_root / "case_input.yaml", yaml.safe_dump(case_input, sort_keys=False, allow_unicode=True))
     _write(
+        case_root / "inputs" / "captures" / "manifest.yaml",
+        yaml.safe_dump(
+            {
+                "captures": [
+                    {
+                        "capture_id": "cap-anomalous-001",
+                        "capture_role": "anomalous",
+                        "file_name": "broken.rdc",
+                        "source": "user_supplied",
+                        "import_mode": "path",
+                        "imported_at": "2026-03-24T00:00:00Z",
+                        "sha256": "sha-broken",
+                        "source_path": "C:/captures/broken.rdc",
+                    },
+                    {
+                        "capture_id": "cap-baseline-001",
+                        "capture_role": "baseline",
+                        "file_name": "good.rdc",
+                        "source": "historical_good",
+                        "import_mode": "path",
+                        "imported_at": "2026-03-24T00:00:00Z",
+                        "sha256": "sha-good",
+                        "source_path": "C:/captures/good.rdc",
+                    },
+                ]
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+    )
+    _write(case_root / "inputs" / "captures" / "broken.rdc", "broken-capture")
+    _write(case_root / "inputs" / "captures" / "good.rdc", "good-capture")
+    _write(
         case_root / "inputs" / "references" / "manifest.yaml",
         yaml.safe_dump({"references": [{"reference_id": "golden-001", "file_name": "golden.png", "source_kind": "external_image"}]}, sort_keys=False, allow_unicode=True),
     )
@@ -419,10 +547,30 @@ def _seed_run(
         "coordination_mode": coordination_mode,
         "session_id": "sess_fixture_001",
         "capture_file_id": "capf_fixture_001",
+        "runtime": {
+            "entry_mode": "cli",
+            "backend": "local",
+            "context_id": "ctx-orchestrator",
+            "runtime_owner": "rdc-debugger",
+            "coordination_mode": coordination_mode,
+        },
     }
     if knowledge_context is not None:
         run_payload["knowledge_context"] = knowledge_context
     _write(run_root / "run.yaml", yaml.safe_dump(run_payload, sort_keys=False, allow_unicode=True))
+    _write(
+        run_root / "capture_refs.yaml",
+        yaml.safe_dump(
+            {
+                "captures": [
+                    {"capture_id": "cap-anomalous-001", "capture_role": "anomalous", "file_name": "broken.rdc"},
+                    {"capture_id": "cap-baseline-001", "capture_role": "baseline", "file_name": "good.rdc"},
+                ]
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+    )
     _write(
         run_root / "artifacts" / "fix_verification.yaml",
         yaml.safe_dump(
@@ -458,6 +606,7 @@ def _seed_run(
             allow_unicode=True,
         ),
     )
+    _write(run_root / "notes" / "pixel_forensics.md", "# pixel forensics\n")
     intent_gate = {
         "classifier_version": 1,
         "judged_by": "rdc-debugger",
@@ -521,6 +670,11 @@ def _seed_run(
         + "\n",
     )
     _write(run_root / "reports" / "visual_report.html", "<html><body><p>session_id = sess_fixture_001</p><p>event 523</p></body></html>\n")
+    _seed_entry_gate(root, run_root, platform=platform)
+    _seed_intake_gate(root, run_root)
+    action_chain = root / "common" / "knowledge" / "library" / "sessions" / "sess_fixture_001" / "action_chain.jsonl"
+    if action_chain.is_file():
+        _seed_runtime_topology(root, run_root, platform=platform)
     return run_root
 
 
@@ -552,7 +706,11 @@ def _run_audit(root: Path, platform: str, run_root: Path) -> _ProcResult:
             "status": "pass" if payload["status"] == "passed" else "fail",
             "duration_ms": 0,
             "refs": [],
-            "payload": {"validator": "run_compliance_audit", "summary": f"run compliance audit {payload['status']}"},
+            "payload": _rt_payload(
+                validator="run_compliance_audit",
+                summary=f"run compliance audit {payload['status']}",
+                path=f"workspace/cases/{run_root.parent.parent.name}/runs/{run_root.name}/artifacts/run_compliance.yaml",
+            ),
         },
     )
     module._dump_yaml(run_root / "artifacts" / "run_compliance.yaml", payload)  # noqa: SLF001
@@ -681,6 +839,240 @@ class RunComplianceAuditTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
         artifact = yaml.safe_load((run_root / "artifacts" / "run_compliance.yaml").read_text(encoding="utf-8"))
         self.assertEqual(artifact["status"], "failed")
+
+    def test_missing_capture_manifest_fails(self) -> None:
+        root = self._temp_root()
+        _seed_base(root)
+        _seed_common_session(root, "sess_fixture_001", "run_01")
+        run_root = _seed_run(root, "case_001", "run_01", "code-buddy", "concurrent_team")
+        (run_root.parent.parent / "inputs" / "captures" / "manifest.yaml").unlink()
+
+        proc = _run_audit(root, "code-buddy", run_root)
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        artifact = yaml.safe_load((run_root / "artifacts" / "run_compliance.yaml").read_text(encoding="utf-8"))
+        failing = {item["id"] for item in artifact["checks"] if item["result"] == "fail"}
+        self.assertIn("captures_manifest", failing)
+        self.assertIn("capture_manifest_integrity", failing)
+
+    def test_missing_imported_capture_file_fails(self) -> None:
+        root = self._temp_root()
+        _seed_base(root)
+        _seed_common_session(root, "sess_fixture_001", "run_01")
+        run_root = _seed_run(root, "case_001", "run_01", "code-buddy", "concurrent_team")
+        (run_root.parent.parent / "inputs" / "captures" / "broken.rdc").unlink()
+
+        proc = _run_audit(root, "code-buddy", run_root)
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        artifact = yaml.safe_load((run_root / "artifacts" / "run_compliance.yaml").read_text(encoding="utf-8"))
+        failing = {item["id"] for item in artifact["checks"] if item["result"] == "fail"}
+        self.assertIn("capture_manifest_integrity", failing)
+        self.assertIn("intake_gate_status", failing)
+
+    def test_missing_capture_refs_fails(self) -> None:
+        root = self._temp_root()
+        _seed_base(root)
+        _seed_common_session(root, "sess_fixture_001", "run_01")
+        run_root = _seed_run(root, "case_001", "run_01", "code-buddy", "concurrent_team")
+        (run_root / "capture_refs.yaml").unlink()
+
+        proc = _run_audit(root, "code-buddy", run_root)
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        artifact = yaml.safe_load((run_root / "artifacts" / "run_compliance.yaml").read_text(encoding="utf-8"))
+        failing = {item["id"] for item in artifact["checks"] if item["result"] == "fail"}
+        self.assertIn("capture_refs", failing)
+        self.assertIn("capture_refs_integrity", failing)
+
+    def test_tool_execution_before_intake_gate_fails(self) -> None:
+        root = self._temp_root()
+        _seed_base(root)
+        _seed_common_session(root, "sess_fixture_001", "run_01")
+        run_root = _seed_run(root, "case_001", "run_01", "code-buddy", "concurrent_team")
+        action_chain = root / "common" / "knowledge" / "library" / "sessions" / "sess_fixture_001" / "action_chain.jsonl"
+        events = [json.loads(line) for line in action_chain.read_text(encoding="utf-8").splitlines() if line.strip()]
+        reordered = [events[1], events[0], *events[2:]]
+        _write(action_chain, "\n".join(json.dumps(event, ensure_ascii=False) for event in reordered) + "\n")
+
+        proc = _run_audit(root, "code-buddy", run_root)
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        artifact = yaml.safe_load((run_root / "artifacts" / "run_compliance.yaml").read_text(encoding="utf-8"))
+        failing = {item["id"] for item in artifact["checks"] if item["result"] == "fail"}
+        self.assertIn("intake_gate_before_analysis", failing)
+
+    def test_concurrent_team_requires_distinct_contexts_for_distinct_specialists(self) -> None:
+        root = self._temp_root()
+        _seed_base(root)
+        _seed_common_session(root, "sess_fixture_001", "run_01")
+        run_root = _seed_run(root, "case_001", "run_01", "code-buddy", "concurrent_team")
+        action_chain = root / "common" / "knowledge" / "library" / "sessions" / "sess_fixture_001" / "action_chain.jsonl"
+        events = [json.loads(line) for line in action_chain.read_text(encoding="utf-8").splitlines() if line.strip()]
+        events.append(
+            {
+                "schema_version": "2",
+                "event_id": "evt-0011-second-tool",
+                "ts_ms": 1772537603000,
+                "run_id": "run_01",
+                "session_id": "sess_fixture_001",
+                "agent_id": "shader_ir_agent",
+                "event_type": "tool_execution",
+                "status": "ok",
+                "duration_ms": 90,
+                "refs": ["evt-0002-dispatch"],
+                "payload": _rt_payload(
+                    context_id="ctx-pixel",
+                    runtime_owner="shader_ir_agent",
+                    tool_name="rd.shader.debug_start",
+                    transport="daemon",
+                ),
+            }
+        )
+        _write(action_chain, "\n".join(json.dumps(event, ensure_ascii=False) for event in events) + "\n")
+
+        proc = _run_audit(root, "code-buddy", run_root)
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        artifact = yaml.safe_load((run_root / "artifacts" / "run_compliance.yaml").read_text(encoding="utf-8"))
+        failing = {item["id"] for item in artifact["checks"] if item["result"] == "fail"}
+        self.assertIn("runtime_owner_topology", failing)
+
+    def test_runtime_topology_records_platform_agentic_profile(self) -> None:
+        root = self._temp_root()
+        _seed_base(root)
+        _seed_common_session(root, "sess_fixture_001", "run_01")
+        run_root = _seed_run(root, "case_001", "run_01", "codex", "staged_handoff")
+
+        artifact = yaml.safe_load((run_root / "artifacts" / "runtime_topology.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(artifact["sub_agent_mode"], "puppet_sub_agents")
+        self.assertEqual(artifact["peer_communication"], "via_main_agent")
+        self.assertEqual(artifact["dispatch_topology"], "hub_and_spoke")
+        self.assertEqual(artifact["runtime_parallelism_ceiling"], "multi_context_multi_owner")
+        self.assertEqual(artifact["applied_live_runtime_policy"], "single_runtime_owner")
+
+    def test_remote_run_requires_single_runtime_owner(self) -> None:
+        root = self._temp_root()
+        _seed_base(root)
+        _seed_common_session(root, "sess_fixture_001", "run_01")
+        run_root = _seed_run(root, "case_001", "run_01", "codex", "staged_handoff")
+
+        entry_gate = yaml.safe_load((run_root.parent.parent / "artifacts" / "entry_gate.yaml").read_text(encoding="utf-8"))
+        entry_gate["backend"] = "remote"
+        entry_gate["request"]["remote_transport"] = "adb_android"
+        _write(run_root.parent.parent / "artifacts" / "entry_gate.yaml", yaml.safe_dump(entry_gate, sort_keys=False, allow_unicode=True))
+        run_yaml = yaml.safe_load((run_root / "run.yaml").read_text(encoding="utf-8"))
+        run_yaml["runtime"]["backend"] = "remote"
+        _write(run_root / "run.yaml", yaml.safe_dump(run_yaml, sort_keys=False, allow_unicode=True))
+        _seed_runtime_topology(root, run_root, platform="codex")
+
+        action_chain = root / "common" / "knowledge" / "library" / "sessions" / "sess_fixture_001" / "action_chain.jsonl"
+        events = [json.loads(line) for line in action_chain.read_text(encoding="utf-8").splitlines() if line.strip()]
+        events.append(
+            {
+                "schema_version": "2",
+                "event_id": "evt-0011-remote-owner",
+                "ts_ms": 1772537603100,
+                "run_id": "run_01",
+                "session_id": "sess_fixture_001",
+                "agent_id": "shader_ir_agent",
+                "event_type": "tool_execution",
+                "status": "ok",
+                "duration_ms": 90,
+                "refs": ["evt-0002-dispatch"],
+                "payload": _rt_payload(
+                    backend="remote",
+                    context_id="ctx-remote",
+                    runtime_owner="shader_ir_agent",
+                    tool_name="rd.event.get_actions",
+                    transport="daemon",
+                ),
+            }
+        )
+        _write(action_chain, "\n".join(json.dumps(event, ensure_ascii=False) for event in events) + "\n")
+
+        proc = _run_audit(root, "codex", run_root)
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        artifact = yaml.safe_load((run_root / "artifacts" / "run_compliance.yaml").read_text(encoding="utf-8"))
+        failing = {item["id"] for item in artifact["checks"] if item["result"] == "fail"}
+        self.assertIn("runtime_owner_topology", failing)
+
+    def test_workflow_stage_cannot_masquerade_as_multi_specialist_network(self) -> None:
+        root = self._temp_root()
+        _seed_base(root)
+        _seed_common_session(root, "sess_fixture_001", "run_01")
+        run_root = _seed_run(root, "case_001", "run_01", "manus", "workflow_stage")
+        action_chain = root / "common" / "knowledge" / "library" / "sessions" / "sess_fixture_001" / "action_chain.jsonl"
+        events = [json.loads(line) for line in action_chain.read_text(encoding="utf-8").splitlines() if line.strip()]
+        events.append(
+            {
+                "schema_version": "2",
+                "event_id": "evt-0012-second-workflow-specialist",
+                "ts_ms": 1772537603200,
+                "run_id": "run_01",
+                "session_id": "sess_fixture_001",
+                "agent_id": "rdc-debugger",
+                "event_type": "dispatch",
+                "status": "ok",
+                "duration_ms": 0,
+                "refs": [],
+                "payload": _rt_payload(target_agent="shader_ir_agent", summary="extra workflow specialist"),
+            }
+        )
+        events.append(
+            {
+                "schema_version": "2",
+                "event_id": "evt-0013-second-workflow-artifact",
+                "ts_ms": 1772537603300,
+                "run_id": "run_01",
+                "session_id": "sess_fixture_001",
+                "agent_id": "shader_ir_agent",
+                "event_type": "artifact_write",
+                "status": "ok",
+                "duration_ms": 40,
+                "refs": ["evt-0012-second-workflow-specialist"],
+                "payload": _rt_payload(
+                    path=f"workspace/cases/{run_root.parent.parent.name}/runs/{run_root.name}/notes/shader_ir.md",
+                    summary="shader note",
+                ),
+            }
+        )
+        _write(action_chain, "\n".join(json.dumps(event, ensure_ascii=False) for event in events) + "\n")
+        _seed_runtime_topology(root, run_root, platform="manus")
+
+        proc = _run_audit(root, "manus", run_root)
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        artifact = yaml.safe_load((run_root / "artifacts" / "run_compliance.yaml").read_text(encoding="utf-8"))
+        failing = {item["id"] for item in artifact["checks"] if item["result"] == "fail"}
+        self.assertIn("runtime_owner_topology", failing)
+
+    def test_resume_without_baton_ref_fails(self) -> None:
+        root = self._temp_root()
+        _seed_base(root)
+        _seed_common_session(root, "sess_fixture_001", "run_01")
+        run_root = _seed_run(root, "case_001", "run_01", "code-buddy", "concurrent_team")
+        action_chain = root / "common" / "knowledge" / "library" / "sessions" / "sess_fixture_001" / "action_chain.jsonl"
+        events = [json.loads(line) for line in action_chain.read_text(encoding="utf-8").splitlines() if line.strip()]
+        events[2]["payload"]["tool_name"] = "rd.session.resume"
+        events[2]["payload"]["baton_ref"] = ""
+        _write(action_chain, "\n".join(json.dumps(event, ensure_ascii=False) for event in events) + "\n")
+
+        proc = _run_audit(root, "code-buddy", run_root)
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        artifact = yaml.safe_load((run_root / "artifacts" / "run_compliance.yaml").read_text(encoding="utf-8"))
+        failing = {item["id"] for item in artifact["checks"] if item["result"] == "fail"}
+        self.assertIn("runtime_baton_contract", failing)
+
+    def test_specialist_cannot_execute_live_tool_with_other_runtime_owner(self) -> None:
+        root = self._temp_root()
+        _seed_base(root)
+        _seed_common_session(root, "sess_fixture_001", "run_01")
+        run_root = _seed_run(root, "case_001", "run_01", "code-buddy", "concurrent_team")
+        action_chain = root / "common" / "knowledge" / "library" / "sessions" / "sess_fixture_001" / "action_chain.jsonl"
+        events = [json.loads(line) for line in action_chain.read_text(encoding="utf-8").splitlines() if line.strip()]
+        events[2]["payload"]["runtime_owner"] = "rdc-debugger"
+        _write(action_chain, "\n".join(json.dumps(event, ensure_ascii=False) for event in events) + "\n")
+
+        proc = _run_audit(root, "code-buddy", run_root)
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        artifact = yaml.safe_load((run_root / "artifacts" / "run_compliance.yaml").read_text(encoding="utf-8"))
+        failing = {item["id"] for item in artifact["checks"] if item["result"] == "fail"}
+        self.assertIn("runtime_owner_topology", failing)
 
     def test_fallback_only_fix_verification_fails(self) -> None:
         root = self._temp_root()

@@ -16,9 +16,13 @@ description: Public main skill for the RenderDoc/RDC GPU debugger framework. Use
 3. 只有在判定属于 `debugger` 后，才继续统一 preflight。
 4. 判断输入是否齐备。
 5. 在缺失时用一轮或多轮补料把任务补齐。
-6. 只有条件满足后，才初始化 case/run、写入 `case_input.yaml` 与 `hypothesis_board.yaml`。
-7. 直接决定 specialist 分派、阶段推进与最终质量门。
-8. 在 case/run 已创建后，从 `hypothesis_board.yaml` 读取并持续回显当前 task/progress。
+6. 只有条件满足后，先执行 case 级 `entry_gate`，固定生成 `../workspace/cases/<case_id>/artifacts/entry_gate.yaml`。
+7. 只有 `entry_gate.status = passed` 后，才初始化 case/run、写入 `case_input.yaml` 与 `hypothesis_board.yaml`。
+8. 在 accepted intake 后立即导入 capture、写入 `inputs/captures/manifest.yaml`、`capture_refs.yaml`，并生成 `artifacts/intake_gate.yaml`。
+9. 只有 `intake_gate.status = passed` 后，才允许 specialist 分派和任何 live `rd.*` 分析。
+10. 调查开始后必须写出 `artifacts/runtime_topology.yaml`，并保持 action chain payload 与它一致。
+11. 直接决定 specialist 分派、阶段推进与最终质量门。
+12. 在 case/run 已创建后，从 `hypothesis_board.yaml` 读取并持续回显当前 task/progress。
 
 ## Intent Gate 独占权
 
@@ -209,6 +213,9 @@ Only after this full handoff gate is satisfied may `rdc-debugger` initialize `wo
 - 至少有一份 `.rdc`
 - 用户目标可归一化为 `session.goal`
 - 当前问题模式可判定，或显式标为 `unknown_pending_rdc-debugger`
+- `artifacts/entry_gate.yaml` 已生成且 `status = passed`
+- `inputs/captures/manifest.yaml`、`capture_refs.yaml` 与 `hypothesis_board.yaml` 已写出
+- `artifacts/intake_gate.yaml` 已生成且 `status = passed`
 
 交给 `rdc-debugger` 时，必须提交一个 normalized handoff，至少包含：
 
@@ -254,6 +261,7 @@ Only when all of the following are true may `rdc-debugger` initialize `case_id`,
 
 - `intent_gate.decision = debugger`
 - preflight passed
+- `artifacts/entry_gate.yaml` 已生成且 `status = passed`
 - `session.goal` is normalized
 - at least one importable `.rdc` is available
 
@@ -261,7 +269,46 @@ Hard rules:
 
 - standalone tools-layer `capture open` is not sufficient
 - initialize `case_id` and `run_id` immediately after accepted intake
-- write `case_input.yaml` and `hypothesis_board.yaml` inside the accepted `rdc-debugger` flow
+- write `case_input.yaml`, `inputs/captures/manifest.yaml`, `capture_refs.yaml` and `hypothesis_board.yaml` inside the accepted `rdc-debugger` flow
+- run `artifacts/intake_gate.yaml` immediately after capture import + case/run bootstrap
+- write `artifacts/runtime_topology.yaml` before long-running investigation and keep it aligned with action chain payload metadata
+- do not emit specialist `dispatch` or call live `rd.*` tools before `intake_gate.status = passed`
+
+### 4.2 Intake Gate Output
+
+`intake_gate` 是 Codex / staged_handoff 平台的起跑门禁。
+
+`entry_gate` 是所有平台的 case 级模式门禁，用来阻断：
+
+- 缺 `.rdc`
+- `MCP` 未配置
+- 平台当前不支持该 `entry_mode/backend`
+- remote 缺 transport / prerequisite
+
+固定要求：
+
+- 输出路径固定为 `../workspace/cases/<case_id>/runs/<run_id>/artifacts/intake_gate.yaml`
+- 同一 run 的 `action_chain.jsonl` 必须追加 `quality_check` 事件，`payload.validator = intake_gate`
+- `dispatch`、`tool_execution`、`artifact_write`、`quality_check` 的 payload 统一带上 `entry_mode`、`backend`、`context_id`、`runtime_owner`、`baton_ref`
+- `single_runtime_owner` 不等于单 agent 串行；`staged_handoff` 仍允许主 agent 编排下的多 specialist、多轮 brief、多轮 redispatch
+- `staged_handoff` 的权威拓扑是 `hub_and_spoke`：specialist 之间不直连，所有依赖与裁决都经 `rdc-debugger` 重组
+- remote 与 `staged_handoff` / `workflow_stage` 统一采用单 owner live runtime；跨 agent / 跨轮次 live handoff 必须落成 `artifacts/runtime_batons/<baton_id>.yaml`
+- 以下任一缺失都必须 hard fail：
+  - `case_input.yaml`
+  - `inputs/captures/manifest.yaml`
+  - 至少一个已导入 `.rdc`
+  - `capture_refs.yaml`
+  - `notes/hypothesis_board.yaml`
+  - `hypothesis_board.intent_gate.decision = debugger`
+
+### 4.3 Tool Contract Reminder
+
+- `rd.texture.get_data`
+  - 只用于数值 readback / container artifact
+  - 默认返回 `.npz`
+  - 不得当成 PNG 导出使用
+- `rd.export.texture`
+  - 是唯一的图片导出入口
 
 ## Panel / Progress 规则
 

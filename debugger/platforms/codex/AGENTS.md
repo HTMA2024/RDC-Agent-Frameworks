@@ -32,11 +32,20 @@
 - 平台启动后默认保持普通对话态；只有用户手动召唤 `rdc-debugger`，才进入 RenderDoc/RDC GPU Debug 调试框架
 - 除 `rdc-debugger` 之外，其他 specialist 默认都是 internal/debug-only，只能由 `rdc-debugger` 在框架内分派
 - 用户尚未提供可导入的 `.rdc` 时，必须以 `BLOCKED_MISSING_CAPTURE` 停止，不得初始化 case/run 或继续做 debug、investigation、tool planning
+- `codex` 的 `local_support` / `remote_support` / `enforcement_layer` 以 `common/config/platform_capabilities.json` 当前行与 `runtime_mode_truth.snapshot.json` 为准
 
 未先将 `debugger/common/` 整包覆盖到平台根 `common/`、且将 RDC-Agent-Tools 整包覆盖到平台根 `tools/` 之前，不允许在宿主中使用当前平台模板。
 
 运行时工作区固定为平台根目录下的 `workspace/`
-- 当前宿主没有 native hooks；只有生成 `artifacts/run_compliance.yaml` 且 `status=passed` 后，结案才算合规。
+- 当前宿主没有 native hooks；Codex 的执行门禁固定为：
+  1. `intent_gate`
+  2. `artifacts/entry_gate.yaml`
+  3. binding/preflight + capture import + case/run bootstrap
+  4. `artifacts/intake_gate.yaml` pass
+  5. `artifacts/runtime_topology.yaml`
+  6. `staged_handoff`
+  7. `artifacts/run_compliance.yaml` pass
+- 在 `artifacts/intake_gate.yaml` 通过前，不得执行 specialist dispatch 或 live `rd.*` 调试。
 
 ## Sub-Agent 协调约束
 
@@ -44,9 +53,13 @@
 
 规则：
 
-- `rdc-debugger` 是唯一的 runtime_owner，负责所有 agent 分派与工具执行；public main skill 仍然是 `rdc-debugger`。
+- 当前平台的 `sub_agent_mode = puppet_sub_agents`，不是 `team_agents`。
+- remote 一律服从 `single_runtime_owner`；Codex 不支持多 specialist 共享同一条 live remote runtime。
+- `rdc-debugger` 在 accepted intake 后必须先写出 `inputs/captures/manifest.yaml`、`capture_refs.yaml`、`notes/hypothesis_board.yaml`、`artifacts/intake_gate.yaml` 与 `artifacts/runtime_topology.yaml`。
+- `staged_handoff` 在当前平台上是 hub-and-spoke 多轮接力，不是单 agent 串行切换。
 - Specialist sub-agents 只能通过 workspace artifacts 传递调查结果，不得直接调用或消息通知其他 specialist。
-- 所有跨 agent 信息传递路径：sub-agent 将结果写入 `workspace/cases/<case_id>/runs/<run_id>/` 指定位置 → `rdc-debugger` 读取后决定下一步分派。
+- 所有跨 agent 信息传递路径：sub-agent 将结果写入 `workspace/cases/<case_id>/runs/<run_id>/` 指定位置 → `rdc-debugger` 汇总与裁决 → 下一轮分派。
+- Specialist handoff 结果必须落在 `workspace/cases/<case_id>/runs/<run_id>/notes/**` 或 `capture_refs.yaml`。
 - Specialist 不得直接分派其他 specialist，所有分派必须经由 `rdc-debugger`。
 - 标准分派顺序：`rdc-debugger` → `triage_agent` → `capture_repro_agent` → 专家 specialists（`pixel_forensics`、`pass_graph_pipeline`、`shader_ir`、`driver_device`）→ `skeptic_agent` → `curator_agent`。
 

@@ -8,13 +8,14 @@
 - 默认入口是 daemon-backed `CLI`；当前宿主的 `CLI` 与 `MCP` 都依赖同一 daemon-owned runtime / context。
 - 只有用户明确要求按 `MCP` 接入时，才切换到 `MCP`。
 - 遇到 `qrenderdoc` 风格的 shader IR 调试诉求时，不要只停在 `force_full_precision` 一类高层 patch。
-  - 优先使用 `rd.shader.get_disassembly(target="SPIR-V ASM")` 拿 raw asm。
-  - 再用 `rd.shader.edit_and_replace(source_text|diff_text, source_target="SPIR-V ASM", source_encoding="spirvasm")` 做精确替换。
+  - 优先使用 `rd.shader.get_disassembly(session_id=<session_id>, target="SPIR-V ASM")` 拿 raw asm。
+  - 再用 `rd.shader.edit_and_replace(session_id=<session_id>, source_text|diff_text, source_target="SPIR-V ASM", source_encoding="spirvasm")` 做精确替换。
   - 观察与验证链仍使用现有 `texture` / `export` / `macro` tool；若最终 framebuffer 观察不等价 `qrenderdoc` 主视图，需单独记录为观察链问题，不要与 raw asm 编辑能力混淆。
   - raw asm bisect 结论必须建立在多点采样与稳定 revert 上；单次 patch 的“已应用”只证明 tool 链路成立，不足以证明该 patch 就是正确修复。
 - 任务开始时，Agent 必须向用户说明当前采用的是 `CLI` 还是 `MCP`。
 - 若用户要求 `MCP`，但宿主未配置对应 MCP server，必须直接阻断并提示配置。
 - 当前模板默认不预注册 MCP；若要启用，使用 `.codex/config.mcp.opt-in.toml` 的示例片段显式接入。
+- 当前平台的 `local_support` / `remote_support` / `enforcement_layer` 以 `common/config/platform_capabilities.json` 中 `codex` 行为准；README 不再单独发明第二套 remote 口径。
 
 使用方式：
 
@@ -36,17 +37,28 @@
 - 当前工具 snapshot 必须与 `RDC-Agent-Tools` 当前 catalog 完整对齐，并覆盖 `rd.vfs.*` 导航层、扩展 `rd.session.*`、`rd.core.*` discovery/observability，以及 bounded event-tree 读取语义；其中 `tabular/tsv` 仅作为 projection 支持。
 - 未提供可导入的 `.rdc` 时，Agent 必须以 `BLOCKED_MISSING_CAPTURE` 直接阻断，不得初始化 case/run 或继续 triage、investigation、planning。
 - `workspace/` 预生成空骨架；真实运行产物在平台使用阶段按 case/run 写入。
-- remote / live bridge / rehydrate 仍属于需要显式验证的协作路径，但不能再默认写成 “`MCP` remote Android 一定不可用”。
-- 如果维护者刻意复核 Android remote-only 路径，当前平台应优先走 daemon-backed `CLI`，并使用 `tools/scripts/tool_contract_remote_smoke.py --rdc "<sample.rdc>" --transport daemon|mcp`。
-- 对 Codex 平台，Android remote-only 的完整 truth 以最新 smoke 报告为准；最小 `MCP` bootstrap 主链已应被视为可验证路径，而不是默认超时路径。
-- 当前宿主没有 native hooks；只有生成 `artifacts/run_compliance.yaml` 且 `status=passed` 后，结案才算合规。
+- 当前平台的 remote 属于正式能力面，但统一服从 `single_runtime_owner`；若 user/backend 进入 remote，所有 live `rd.*` 只能由一个 runtime owner 持有。
+- 如果维护者复核 Android remote-only 路径，当前平台应优先走 daemon-backed `CLI`，并使用 `tools/scripts/tool_contract_remote_smoke.py --rdc "<sample.rdc>" --transport daemon|mcp`。
+- 对 Codex 平台，remote 是否 `verified` 以最新 smoke 报告与 `platform_capabilities.json` 当前行共同裁决，不再使用 “experimental remote” 口径。
+- 当前宿主没有 native hooks；Codex 的执行门禁固定为：
+  1. `intent_gate`
+ 2. `artifacts/entry_gate.yaml`
+ 3. binding/preflight + capture import + case/run bootstrap
+ 4. `artifacts/intake_gate.yaml` pass
+ 5. `artifacts/runtime_topology.yaml`
+ 6. `staged_handoff`
+ 7. `artifacts/run_compliance.yaml` pass
+- 在 `artifacts/intake_gate.yaml` 通过前，不得进入 specialist dispatch 或 live `rd.*` 分析。
 
 Sub-Agent 工作模型：
 
 Codex sub-agent 现已正式可用。本平台采用 `staged_handoff` coordination mode，对应以下工作模型：
 
-- `rdc-debugger` 是 public main skill；`rdc-debugger` 是唯一 runtime_owner 与 orchestrator，负责 intake normalization、分派与质量门裁决。
-- **Sub-agents 之间不具备直接通信能力**，所有跨 agent 协调通过 workspace artifacts 间接完成。
+- `rdc-debugger` 是 public main skill；Codex 通过 `artifacts/entry_gate.yaml + runtime_owner + run_compliance` 三层约束落地，无需 native hooks。
+- 当前平台的 `sub_agent_mode = puppet_sub_agents`；Codex 有多个 sub-agent，但它们不是 `team_agents`。
+- `rdc-debugger` 在 accepted intake 后必须先写出 `inputs/captures/manifest.yaml`、`capture_refs.yaml`、`notes/hypothesis_board.yaml`、`artifacts/intake_gate.yaml` 与 `artifacts/runtime_topology.yaml`，然后才允许 `staged_handoff`。
+- **Sub-agents 之间不具备直接通信能力**，所有依赖、冲突与下一轮 brief 都经 `rdc-debugger` 中转。
+- `staged_handoff` 在当前平台上是 hub-and-spoke 多轮接力，不是单 agent 串行切换。
 - 标准分派顺序：`rdc-debugger` → `triage_agent` → `capture_repro_agent` → specialists（`pass_graph_pipeline`、`pixel_forensics`、`shader_ir`、`driver_device`）→ `skeptic_agent` → `curator_agent`。
-- 每个 specialist 将结果写入 `workspace/cases/<case_id>/runs/<run_id>/` 指定位置后返回，`rdc-debugger` 读取后继续分派。
+- 每个 specialist 将结果写入 `workspace/cases/<case_id>/runs/<run_id>/notes/**` 或 `capture_refs.yaml` 后返回，`rdc-debugger` 读取后继续分派。
 - Specialist 不得直接分派其他 specialist。

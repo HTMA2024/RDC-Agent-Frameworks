@@ -14,5 +14,5 @@
 - 不得在该宿主上模拟实时 multi-agent handoff。
 - 当前平台只允许 `MCP` 作为工具入口，不允许尝试 `CLI`。
 - 开始任何平台真相相关工作前，必须先完成 MCP preflight；若 MCP server 未配置完成，必须直接阻断。
-- 若任务需要 experimental remote rehydrate、多 live owners 或 per-agent model routing，必须切回更高能力平台。
+- 若任务需要更高阶 remote 多轮会诊、多 live owners 或 per-agent model routing，必须切回更高能力平台。
 运行时工作区固定为平台根目录下的 `workspace/`

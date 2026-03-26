@@ -4,7 +4,7 @@
 
 目标不是规定用户必须按某种语言风格提问，而是要求任何进入调试链的输入，最终都必须被 `rdc-debugger` 规范化为同一个 `case_input.yaml`。
 
-平台启动后默认保持普通对话态；只有用户手动召唤 `rdc-debugger`，才进入调试框架。进入框架后，由 `rdc-debugger` 自己完成 preflight、补料、intake 规范化、case/run 初始化与 specialist orchestration。
+平台启动后默认保持普通对话态；只有用户手动召唤 `rdc-debugger`，才进入调试框架。进入框架后，由 `rdc-debugger` 自己完成 preflight、`entry_gate`、补料、intake 规范化、case/run 初始化与 specialist orchestration。
 
 ## 0A. Minimal Non-Interactive Preflight
 
@@ -13,6 +13,7 @@ When the host is running a non-interactive prompt such as `claude -p`, or the pr
 `minimal_non_interactive` mode must:
 
 - stop after `intent_gate`
+- stop after `entry_gate`
 - stop after setup verification
 - stop after capture presence check
 - declare the chosen entry mode
@@ -27,7 +28,7 @@ When the host is running a non-interactive prompt such as `claude -p`, or the pr
 - write `hypothesis_board.yaml`
 - continue inside `rdc-debugger`
 
-Full `case/run` creation remains gated on accepted `rdc-debugger` intake.
+Full `case/run` creation remains gated on accepted `rdc-debugger` intake and a passed `entry_gate`.
 
 ## 0. Framework Intent Gate
 
@@ -63,6 +64,7 @@ Full `case/run` creation remains gated on accepted `rdc-debugger` intake.
 硬规则：
 
 - 用户提供 `.rdc` 的正式方式只有两种：在当前对话上传，或提供宿主当前会话可访问的文件路径
+- accepted intake 前必须先生成 `../workspace/cases/<case_id>/artifacts/entry_gate.yaml`
 - accepted intake 后由 `rdc-debugger` 创建 case/run 并把 `.rdc` 导入 `../workspace/cases/<case_id>/inputs/captures/`
 - 未拿到至少一份异常 `.rdc` 前，不得创建 `case_input.yaml`
 - 未拿到至少一份异常 `.rdc` 前，`rdc-debugger` 只能在当前会话 / 主面板中维护补料状态，不得创建 case/run 或 `hypothesis_board.yaml`
@@ -192,6 +194,10 @@ project:
 - 上传导入不得伪造 `source_path`；应记录等价上传来源标识
 - `case_input.yaml` 不镜像导入路径、hash 或导入时间；这些字段只保留在 capture manifest
 - `capture_refs.yaml` 只记录 run 实际采用的 capture 引用与 provenance 摘要，不回写导入源细节
+- accepted intake 后必须立即生成 `runs/<run_id>/artifacts/intake_gate.yaml`
+- 调查启动前必须生成 `runs/<run_id>/artifacts/runtime_topology.yaml`
+- `intake_gate.yaml` 通过前，不得进入 specialist dispatch 或 live `rd.*` 调试
+- `dispatch`、`tool_execution`、`artifact_write`、`quality_check` 的 payload 必须带上 `entry_mode`、`backend`、`context_id`、`runtime_owner`、`baton_ref`
 
 ## 5. 严格验证与 fallback 验证
 

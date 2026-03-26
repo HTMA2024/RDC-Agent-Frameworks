@@ -17,6 +17,7 @@
 - `.rdc -> capture_file_id -> session_id -> frame/event context` 的最小状态链路
 - `remote_id`、`capture_file_id`、`session_id`、`active_event_id` 等 handle 的生命周期
 - `context`、daemon、artifact、context snapshot 的平台语义
+- `spec/runtime_mode_truth.json` 对应的 transport/runtime 模式真相
 - 错误分类与恢复面
 
 以下内容属于 framework：
@@ -43,7 +44,23 @@
 
 只有当 `intent_gate.decision=debugger` 时，后续 debugger-specific preflight、capture、handoff 才允许继续。
 
-## 3. Mandatory Setup Verification
+## 3. Mandatory Entry Gate
+
+`intent_gate` 通过后，不是直接创建 run，而是先执行 case 级 `entry_gate`。
+
+硬规则：
+
+- `entry_gate` 固定落盘到 `../workspace/cases/<case_id>/artifacts/entry_gate.yaml`
+- 它负责裁决当前平台的 `entry_mode`、`backend`、capture 是否已提供、MCP 是否已配置，以及 remote 前置是否满足
+- `entry_gate` 未通过时，不得进入 accepted intake，不得创建 `run_id`，也不得进入 live `rd.*`
+- `entry_gate` 的唯一阻断码为：
+  - `BLOCKED_MISSING_CAPTURE`
+  - `BLOCKED_ENTRY_PREFLIGHT`
+  - `BLOCKED_PLATFORM_MODE_UNSUPPORTED`
+  - `BLOCKED_REMOTE_PREREQUISITE`
+- framework 关于 local/remote 的正式支持级别，只能以 `common/config/platform_capabilities.json` 与 `common/config/runtime_mode_truth.snapshot.json` 为准
+
+## 4. Mandatory Setup Verification
 
 所有需要平台真相的工作在开始前，必须先验证以下两项均已就绪：
 
@@ -75,7 +92,7 @@
 3. 不允许把 `CLI` wrapper、skill 文本、平台模板说明或模型记忆当成 Tools 真相替代品。
 4. 不允许尝试搜索替代工具路径、降级处理或用其他方式绕过本检查。
 
-## 4. Mandatory Capture Intake
+## 5. Mandatory Capture Intake
 
 所有进入 `RenderDoc/RDC GPU Debug` workflow 的任务，在开始前必须先取得至少一份用户提供的、可导入的 `.rdc`。
 
@@ -88,8 +105,8 @@
 5. 阻断期间允许的唯一动作是提示用户上传 `.rdc`，或提供宿主当前会话可访问的文件路径。
 6. 不允许用截图、日志、文本描述、skill 文本、平台模板说明或模型记忆替代 `.rdc` 作为第一性调试输入。
 7. 新导入 `.rdc` 一律按 append intake 处理；不得隐式 overwrite 已有 capture。
-8. `rdc-debugger` 只在 accepted intake 后初始化 `case_id`、`run_id`、`workspace_run_root`，并把 `.rdc` 导入 `inputs/captures/`。
-9. 在 capture intake 完成前，不允许初始化 `case_id`、`run_id`、`workspace_run_root` 或 `case_input.yaml`。
+8. `rdc-debugger` 先通过 `entry_gate`，再把 `.rdc` 导入 `inputs/captures/`，然后才允许 accepted intake 与 `run_id` 初始化。
+9. 在 capture intake 完成前，不允许初始化 `run_id`、`workspace_run_root`、`case_input.yaml` 或 `runtime_topology.yaml`。
 
 停止时统一输出：
 
@@ -97,7 +114,7 @@
 当前任务缺少必需的 capture 输入：本框架只接受基于 RenderDoc `.rdc` 的第一性调试。请先提供一份或多份 `.rdc` 文件：可以在当前对话上传，或提供宿主当前会话可访问的文件路径；收到并导入 capture 前，Agent 不会继续进行 debug、调查分派或根因判断。
 ```
 
-## 5. Mandatory Intake Normalization
+## 6. Mandatory Intake Normalization
 
 用户可以用自由语言描述问题，但 framework 只承认七段式 intake 被规范化后的 `case_input.yaml`。
 
@@ -173,6 +190,9 @@
 1. `rdc-debugger`
    - 检查 `.rdc` intake
    - 规范化七段式用户输入为 `case_input.yaml`
+   - 导入 capture 并写入 `inputs/captures/manifest.yaml`
+   - 初始化 `run.yaml`、`capture_refs.yaml` 与 `hypothesis_board.yaml`
+   - 运行 `runs/<run_id>/artifacts/intake_gate.yaml`
    - 建立 hypothesis board
    - 决定阶段推进与 specialist 分派
 2. `triage_agent`
@@ -202,8 +222,11 @@
 协作真相：
 
 - `concurrent_team` 允许并行分派，但每条 live 调试链路必须独占一个 `context/daemon`
-- `staged_handoff` 由 specialist 先提交 brief / evidence request，再由 runtime owner 执行 live tool 链
+- `staged_handoff` 不是单 agent 串行；它是主 agent 为通信与裁决中枢的多 specialist 多轮接力
+- `staged_handoff` 下由 specialist 先提交 brief / evidence request，再由 runtime owner 执行 live tool 链
+- 对 `staged_handoff` 平台，`dispatch` 与任何 live `tool_execution` 都必须晚于 `intake_gate` pass；specialist 必须把 handoff 结果写回 `runs/<run_id>/notes/**` 或 `capture_refs.yaml`
 - `workflow_stage` 只允许阶段化串行推进，不模拟真实的 team-agent 并发 handoff
+- `single_runtime_owner` 不等于 `single_agent_flow`
 - remote case 一律服从 `single_runtime_owner`；不得因为 multi-agent 就共享 live remote runtime
 
 ## 8. Hard Contracts
@@ -261,6 +284,8 @@
 ```text
 ../workspace/cases/<case_id>/
   case.yaml
+  artifacts/
+    entry_gate.yaml
   case_input.yaml
   inputs/
     captures/
@@ -274,6 +299,9 @@
       run.yaml
       capture_refs.yaml
       artifacts/
+        intake_gate.yaml
+        runtime_topology.yaml
+        runtime_batons/
         fix_verification.yaml
       logs/
       notes/
@@ -290,6 +318,10 @@
 - `case_input.yaml.captures[].provenance` 只描述调试语义上下文，不镜像导入路径、hash 或导入时间
 - `inputs/captures/` 保存的是导入后的原始 `.rdc`；用户不负责手工把文件预放到 case 目录
 - `runs/<run_id>/capture_refs.yaml` 必须显式记录 `capture_role` 与 provenance
+- `artifacts/entry_gate.yaml` 是 case 级平台/模式/preflight 的唯一权威 gate artifact；未通过前不得进入 accepted intake
+- `runs/<run_id>/artifacts/intake_gate.yaml` 是 run 级 intake 完整性的唯一权威 gate artifact；未通过前不得进入 specialist dispatch 或 live `rd.*`
+- `runs/<run_id>/artifacts/runtime_topology.yaml` 是 run 级 context/owner/backend/entry_mode 拓扑的唯一权威 artifact
+- `runs/<run_id>/artifacts/runtime_batons/` 是唯一合法的 live handoff baton 存放位置
 - `runs/<run_id>/artifacts/fix_verification.yaml` 是 run 级修复验证唯一权威 artifact
 - `runs/<run_id>/notes/hypothesis_board.yaml` 是 run 创建后唯一 panel/progress 结构化状态源
 - `runs/<run_id>/notes/hypothesis_board.yaml` 必须包含由 `rdc-debugger` 提交的 `intent_gate` 摘要
@@ -300,6 +332,7 @@
 
 - `workspace_control`
   - `case.yaml`
+  - `artifacts/entry_gate.yaml`
   - `case_input.yaml`
   - capture/reference manifests
   - `run.yaml`
@@ -328,7 +361,7 @@
 角色分工约束：
 
 - `rdc-debugger` 只允许写 `workspace_control` 范围，不直接执行 live `rd.*`，也不写最终报告或知识对象
-- `triage_agent`、`capture_repro_agent`、`pass_graph_pipeline_agent`、`pixel_forensics_agent`、`shader_ir_agent`、`driver_device_agent` 只允许写 `workspace_notes` 范围
+- `triage_agent`、`capture_repro_agent`、`pass_graph_pipeline_agent`、`pixel_forensics_agent`、`shader_ir_agent`、`driver_device_agent` 只允许写 `workspace_notes` 范围，并必须通过 `artifact_write` 把 handoff 结果落到 `runs/<run_id>/notes/**` 或 `capture_refs.yaml`
 - `skeptic_agent` 只允许写 `session_signoff`
 - `curator_agent` 负责 `workspace_reports`、`session_artifacts` 与 `knowledge_library`
 
@@ -340,14 +373,22 @@
 - `common/knowledge/library/sessions/<session_id>/session_evidence.yaml`
 - `common/knowledge/library/sessions/<session_id>/skeptic_signoff.yaml`
 - `common/knowledge/library/sessions/<session_id>/action_chain.jsonl`
+- `../workspace/cases/<case_id>/artifacts/entry_gate.yaml`
 - `../workspace/cases/<case_id>/case_input.yaml`
+- `../workspace/cases/<case_id>/inputs/captures/manifest.yaml`
 - `../workspace/cases/<case_id>/inputs/references/manifest.yaml`
+- `../workspace/cases/<case_id>/runs/<run_id>/capture_refs.yaml`
+- `../workspace/cases/<case_id>/runs/<run_id>/artifacts/intake_gate.yaml`
+- `../workspace/cases/<case_id>/runs/<run_id>/artifacts/runtime_topology.yaml`
 - `../workspace/cases/<case_id>/runs/<run_id>/artifacts/fix_verification.yaml`
 
 额外规则：
 
+- `entry_gate.yaml.status` 必须为 `passed`
 - `session_evidence.yaml` 根对象必须包含完整 `causal_anchor`
 - `session_evidence.yaml` 必须包含 `reference_contract` 摘要与 `fix_verification` 摘要
+- `runtime_topology.yaml` 必须显式记录 `entry_mode`、`backend`、`sub_agent_mode`、`peer_communication`、`dispatch_topology`、`runtime_parallelism_ceiling`、`applied_live_runtime_policy`、`contexts`、`owners`
+- `action_chain` 中所有 `dispatch`、`tool_execution`、`artifact_write`、`quality_check` 都必须携带 `entry_mode`、`backend`、`context_id`、`runtime_owner`、`baton_ref`
 - `fix_verification.yaml` 必须同时包含：
   - `structural_verification`
   - `semantic_verification`

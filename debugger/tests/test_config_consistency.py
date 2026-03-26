@@ -89,6 +89,10 @@ class ConfigConsistencyTests(unittest.TestCase):
         compliance_entry = (compliance.get("entry_model") or {})
         self.assertEqual(compliance_entry.get("public_entry_skill"), "rdc-debugger")
         self.assertNotIn("orchestration_role", compliance_entry)
+        self.assertEqual(capabilities["platforms"]["cursor"]["coordination_mode"], "staged_handoff")
+        self.assertEqual(capabilities["platforms"]["cursor"]["sub_agent_mode"], "puppet_sub_agents")
+        self.assertEqual(capabilities["platforms"]["claude-code"]["sub_agent_mode"], "team_agents")
+        self.assertEqual(capabilities["platforms"]["manus"]["agent_description_mode"], "spawn_instruction_only")
 
     def test_validate_tool_contract_reader_reports_invalid_adapter_json(self) -> None:
         module = _load_module(DEBUGGER_ROOT / "scripts" / "validate_tool_contract.py", "validate_tool_contract_module")
@@ -169,6 +173,15 @@ class ConfigConsistencyTests(unittest.TestCase):
 
         for key in ("claude-desktop", "manus"):
             self.assertIn("mcp", (compliance.get("platforms") or {}).get(key, {}).get("required_surfaces") or [])
+
+    def test_runtime_mode_truth_snapshot_uses_runtime_parallelism_ceiling(self) -> None:
+        snapshot = _read_json(DEBUGGER_ROOT / "common" / "config" / "runtime_mode_truth.snapshot.json")
+        modes = snapshot.get("modes") or {}
+        self.assertEqual(modes["local_cli"]["runtime_parallelism_ceiling"], "multi_context_multi_owner")
+        self.assertEqual(modes["local_mcp"]["runtime_parallelism_ceiling"], "multi_context_multi_owner")
+        self.assertEqual(modes["remote_daemon"]["runtime_parallelism_ceiling"], "single_runtime_owner")
+        self.assertEqual(modes["remote_mcp"]["runtime_parallelism_ceiling"], "single_runtime_owner")
+        self.assertEqual(modes["remote_mcp"]["host_coordination_gate"], "frameworks_platform_matrix_applies")
 
 
 if __name__ == "__main__":

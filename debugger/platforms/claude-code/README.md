@@ -9,6 +9,7 @@
 - 任务开始时，Agent 必须向用户说明当前采用的是 `CLI` 还是 `MCP`。
 - 若用户要求 `MCP`，但宿主未配置对应 MCP server，必须直接阻断并提示配置。
 - 当前模板默认不预注册 MCP；若要启用，使用 `.claude/settings.mcp.opt-in.json` 的示例配置显式接入。
+- 当前平台的 `local_support` / `remote_support` / `enforcement_layer` 以 `common/config/platform_capabilities.json` 中 `claude-code` 行为准；README 不再单独发明第二套 remote 口径。
 
 使用方式：
 
@@ -29,9 +30,13 @@
 - 未完成 `debugger/common/` 覆盖、`tools/` 覆盖或 binding 校验前，Agent 必须拒绝执行依赖平台真相的工作。
 - 当前工具 snapshot 必须与 `RDC-Agent-Tools` 当前 catalog 完整对齐，并覆盖 `rd.vfs.*` 导航层、扩展 `rd.session.*`、`rd.core.*` discovery/observability，以及 bounded event-tree 读取语义；其中 `tabular/tsv` 仅作为 projection 支持。
 - `.claude/settings.json` 中即使预配置了 `MCP` server，也只表示可选接入面，不改变 Claude Code 默认的 local-first `CLI` 入口。
+- 当前平台的 `sub_agent_mode = team_agents`；Claude Code specialist 之间可直接通信。
+- remote 现在属于正式平台能力面；Claude Code 在 local 下可 `concurrent_team`，进入 remote 后统一降级为 `single_runtime_owner`。
+- local 下只有 team-agent live investigators 才能把 Tools 的 multi-context ceiling 用成 `multi_context_multi_owner`。
 - Claude hooks 使用 string `matcher`；文件路径过滤由共享 hook dispatcher 读取 hook payload 后自行判断，不在 settings.json 里写 object matcher。
 - 未提供可导入的 `.rdc` 时，Agent 必须以 `BLOCKED_MISSING_CAPTURE` 直接阻断，不得初始化 case/run 或继续 triage、investigation、planning。
 - `workspace/` 预生成空骨架；真实运行产物只在被接受的手动 `rdc-debugger` intake 流程中按 case/run 写入。
 - standalone `capture open` 只建立 tools-layer session state，不会创建 framework `workspace/case/run`。
+- accepted intake 前必须先通过 `artifacts/entry_gate.yaml`；调查开始前必须写出 `artifacts/runtime_topology.yaml`。
 - 维护者若重跑 scaffold，必须继续产出 platform-local `common/` 最小占位目录，不得回退到跨级引用。
 - native hooks 会阻断未通过 gate 的结案；同时仍要求生成 `artifacts/run_compliance.yaml` 作为统一合规裁决。

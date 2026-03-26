@@ -43,6 +43,8 @@ workspace/
   cases/
     <case_id>/
       case.yaml
+      artifacts/
+        entry_gate.yaml
       case_input.yaml
       inputs/
         captures/
@@ -56,6 +58,9 @@ workspace/
           run.yaml
           capture_refs.yaml
           artifacts/
+            intake_gate.yaml
+            runtime_topology.yaml
+            runtime_batons/
             fix_verification.yaml
           logs/
           notes/
@@ -67,12 +72,16 @@ workspace/
 
 - `.rdc` 是创建 case 的硬前置条件；未拿到 `.rdc` 前，不创建 `case_id`、`run_id`、`workspace_run_root`
 - `case_input.yaml` 只允许在 capture intake 成功后落盘
+- `entry_gate.yaml` 是 case 级平台/模式/preflight 唯一权威 gate artifact；未通过前不得进入 accepted intake
 - `workspace/` 是 Agent 运行区，不要求用户手工把 `.rdc` 预放进 case 目录
 - `inputs/captures/` 只存导入后的 replayable `.rdc`
 - `inputs/captures/manifest.yaml` 是 capture 导入 provenance 的唯一 SSOT；至少记录 `capture_id`、`file_name`、`capture_role`、`source`、`import_mode`、`imported_at`、`sha256`，以及 `import_mode=path` 时的 `source_path`
 - `case_input.yaml.captures[].provenance` 只描述调试语义上下文，不镜像导入路径、hash 或导入时间
 - `inputs/references/` 只存 golden image、设计稿、验收说明等非 replay reference
 - `fix_verification.yaml` 是 run 级修复验证唯一权威 artifact
+- `intake_gate.yaml` 是 run 级 intake 完整性的唯一权威 gate artifact；它必须先于任何 specialist dispatch / live `rd.*` 分析通过
+- `runtime_topology.yaml` 是 run 级 context/owner/backend/entry_mode 拓扑的唯一权威 artifact
+- `runtime_batons/` 是唯一合法的 live handoff baton artifact 目录
 - 第一层 gate artifacts 不复制到 `workspace/`；`run.yaml` 只记录引用
 - 并行 case 只能共享仓库，不得共享同一条 live `context`；每个并行 live case 都必须有独立 `context/daemon` 与独立 `runs/<run_id>/` 现场。
 - 同一 case 下如需并行 live 调查，也必须拆成独立 runtime owner 与独立 context，再把证据回写到同一 case 的不同 run 或同一 run 的结构化产物中。
@@ -103,11 +112,14 @@ workspace/
 可直接维护：
 
 - `../workspace/cases/<case_id>/case.yaml`
+- `../workspace/cases/<case_id>/artifacts/entry_gate.yaml`
 - `../workspace/cases/<case_id>/case_input.yaml`
 - `../workspace/cases/<case_id>/inputs/captures/manifest.yaml`
 - `../workspace/cases/<case_id>/inputs/references/manifest.yaml`
 - `../workspace/cases/<case_id>/runs/<run_id>/run.yaml`
 - `../workspace/cases/<case_id>/runs/<run_id>/capture_refs.yaml`
+- `../workspace/cases/<case_id>/runs/<run_id>/artifacts/intake_gate.yaml`
+- `../workspace/cases/<case_id>/runs/<run_id>/artifacts/runtime_topology.yaml`
 - `../workspace/cases/<case_id>/runs/<run_id>/artifacts/fix_verification.yaml`
 - `../workspace/cases/<case_id>/runs/<run_id>/logs/`
 - `../workspace/cases/<case_id>/runs/<run_id>/notes/`

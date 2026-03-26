@@ -95,9 +95,13 @@ class RepoBaselineValidationTests(unittest.TestCase):
             "Immediate Case/Run Initialization",
             "`intent_gate.decision = debugger`",
             "preflight passed",
+            "artifacts/entry_gate.yaml",
             "`session.goal` is normalized",
             "standalone tools-layer `capture open` is not sufficient",
             "../workspace/cases/<case_id>/runs/<run_id>/notes/hypothesis_board.yaml",
+            "artifacts/intake_gate.yaml",
+            "artifacts/runtime_topology.yaml",
+            "rd.export.texture",
         ):
             self.assertIn(marker, text)
 
@@ -163,6 +167,69 @@ class RepoBaselineValidationTests(unittest.TestCase):
         )
         self.assertEqual(capabilities["platforms"]["codex"]["coordination_mode"], "staged_handoff")
 
+    def test_codex_docs_declare_intake_gate_before_handoff(self) -> None:
+        readme = (DEBUGGER_ROOT / "platforms" / "codex" / "README.md").read_text(encoding="utf-8-sig")
+        agents = (DEBUGGER_ROOT / "platforms" / "codex" / "AGENTS.md").read_text(encoding="utf-8-sig")
+
+        for text in (readme, agents):
+            self.assertIn("artifacts/entry_gate.yaml", text)
+            self.assertIn("artifacts/intake_gate.yaml", text)
+            self.assertIn("artifacts/runtime_topology.yaml", text)
+            self.assertIn("capture import + case/run bootstrap", text)
+            self.assertIn("artifacts/run_compliance.yaml", text)
+
+    def test_platform_capabilities_declare_mode_support_and_enforcement(self) -> None:
+        capabilities = json.loads(
+            (DEBUGGER_ROOT / "common" / "config" / "platform_capabilities.json").read_text(encoding="utf-8-sig")
+        )
+        snapshot = json.loads(
+            (DEBUGGER_ROOT / "common" / "config" / "runtime_mode_truth.snapshot.json").read_text(encoding="utf-8-sig")
+        )
+        self.assertTrue((snapshot.get("modes") or {}).get("local_cli"))
+        self.assertTrue((snapshot.get("modes") or {}).get("remote_mcp"))
+        for row in (capabilities.get("platforms") or {}).values():
+            self.assertIn(row.get("local_support"), {"verified", "degraded", "unsupported"})
+            self.assertIn(row.get("remote_support"), {"verified", "serial_only", "unsupported"})
+            self.assertIn(row.get("enforcement_layer"), {"hooks", "runtime_owner", "audit_only"})
+            self.assertEqual(row.get("remote_coordination_mode"), "single_runtime_owner")
+            self.assertIn(row.get("sub_agent_mode"), {"team_agents", "puppet_sub_agents", "instruction_only_sub_agents"})
+            self.assertIn(row.get("peer_communication"), {"direct", "via_main_agent", "none"})
+            self.assertIn(row.get("agent_description_mode"), {"independent_files", "spawn_instruction_only"})
+            self.assertIn(row.get("dispatch_topology"), {"mesh", "hub_and_spoke", "workflow_serial"})
+            self.assertIn(row.get("local_live_runtime_policy"), {"multi_context_multi_owner", "single_runtime_owner"})
+            self.assertEqual(row.get("remote_live_runtime_policy"), "single_runtime_owner")
+
+    def test_claude_code_docs_declare_mode_matrix_and_runtime_topology(self) -> None:
+        readme = (DEBUGGER_ROOT / "platforms" / "claude-code" / "README.md").read_text(encoding="utf-8-sig")
+        agents = (DEBUGGER_ROOT / "platforms" / "claude-code" / "AGENTS.md").read_text(encoding="utf-8-sig")
+        for text in (readme, agents):
+            self.assertIn("local_support", text)
+            self.assertIn("remote_support", text)
+            self.assertIn("enforcement_layer", text)
+            self.assertIn("artifacts/entry_gate.yaml", text)
+            self.assertIn("artifacts/runtime_topology.yaml", text)
+            self.assertIn("team_agents", text)
+
+    def test_cursor_docs_describe_staged_handoff_hub_and_spoke(self) -> None:
+        readme = (DEBUGGER_ROOT / "platforms" / "cursor" / "README.md").read_text(encoding="utf-8-sig")
+        agents = (DEBUGGER_ROOT / "platforms" / "cursor" / "AGENTS.md").read_text(encoding="utf-8-sig")
+        for text in (readme, agents):
+            self.assertIn("staged_handoff", text)
+            self.assertIn("puppet_sub_agents", text)
+            self.assertIn("hub-and-spoke", text)
+            self.assertNotIn("concurrent_team", text)
+
+    def test_workflow_stage_platform_docs_describe_spawn_instruction_only(self) -> None:
+        for path in (
+            DEBUGGER_ROOT / "platforms" / "manus" / "README.md",
+            DEBUGGER_ROOT / "platforms" / "manus" / "AGENTS.md",
+            DEBUGGER_ROOT / "platforms" / "claude-desktop" / "README.md",
+            DEBUGGER_ROOT / "platforms" / "claude-desktop" / "AGENTS.md",
+        ):
+            text = path.read_text(encoding="utf-8-sig")
+            self.assertIn("instruction_only_sub_agents", text)
+            self.assertIn("spawn", text)
+
     def test_claude_code_default_agent_is_not_bound(self) -> None:
         validator = _load_module(DEBUGGER_ROOT / "scripts" / "validate_debugger_repo.py", "validate_debugger_repo_claude_agent_module")
         findings = validator._claude_code_agent_findings(DEBUGGER_ROOT)
@@ -188,15 +255,15 @@ class RepoBaselineValidationTests(unittest.TestCase):
 
         self.assertIn("默认入口是 daemon-backed `CLI`", readme)
         self.assertIn("Claude Code 默认入口是 local-first `CLI`", agents)
-        self.assertIn("default entry mode is local-first `CLI`", entry)
-        self.assertIn("switch to `MCP` only when the user explicitly asks", entry)
+        self.assertIn("默认入口模式是 local-first `CLI`", entry)
+        self.assertIn("只有用户明确要求 `MCP` 时，才切换到 `MCP`", entry)
 
     def test_claude_code_workspace_docs_do_not_claim_capture_open_creates_case_run(self) -> None:
         workspace_text = (DEBUGGER_ROOT / "platforms" / "claude-code" / "workspace" / "README.md").read_text(encoding="utf-8-sig")
         cases_text = (DEBUGGER_ROOT / "platforms" / "claude-code" / "workspace" / "cases" / "README.md").read_text(encoding="utf-8-sig")
 
         self.assertIn("standalone `capture open`", workspace_text)
-        self.assertIn("accepted `rdc-debugger` intake", workspace_text)
+        self.assertIn("rdc-debugger` intake", workspace_text)
         self.assertIn("不要求用户手工把 `.rdc` 预放", workspace_text)
         self.assertIn("导入后的原始 `.rdc`", workspace_text)
         self.assertIn("standalone `capture open`", cases_text)

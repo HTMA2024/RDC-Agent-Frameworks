@@ -1,5 +1,5 @@
 {
-  "schema_version": 2,
+  "schema_version": 4,
   "runtime_contract": {
     "context_state_model": "single_current_runtime_per_context",
     "local_parallelism": "multi_context_multi_daemon",
@@ -44,6 +44,10 @@
         }
       },
       "coordination_mode": "concurrent_team",
+      "sub_agent_mode": "team_agents",
+      "peer_communication": "direct",
+      "agent_description_mode": "independent_files",
+      "dispatch_topology": "mesh",
       "degradation_mode": "none",
       "cli_discovery_policy": "mcp-discovery-ok,cli-reference-required",
       "required_paths": [
@@ -53,7 +57,21 @@
         "platforms/code-buddy/.mcp.json",
         "platforms/code-buddy/hooks/hooks.json",
         "platforms/code-buddy/skills/rdc-debugger/SKILL.md"
-      ]
+      ],
+      "supported_entry_modes": [
+        "cli",
+        "mcp"
+      ],
+      "supported_backends": [
+        "local",
+        "remote"
+      ],
+      "remote_coordination_mode": "single_runtime_owner",
+      "local_live_runtime_policy": "multi_context_multi_owner",
+      "remote_live_runtime_policy": "single_runtime_owner",
+      "local_support": "verified",
+      "remote_support": "verified",
+      "enforcement_layer": "hooks"
     },
     "claude-code": {
       "display_name": "Claude Code",
@@ -91,6 +109,10 @@
         }
       },
       "coordination_mode": "concurrent_team",
+      "sub_agent_mode": "team_agents",
+      "peer_communication": "direct",
+      "agent_description_mode": "independent_files",
+      "dispatch_topology": "mesh",
       "degradation_mode": "none",
       "cli_discovery_policy": "mcp-discovery-ok,cli-reference-required",
       "required_paths": [
@@ -99,7 +121,21 @@
         "platforms/claude-code/.claude/settings.json",
         "platforms/claude-code/.claude/CLAUDE.md",
         "platforms/claude-code/.claude/skills/rdc-debugger/SKILL.md"
-      ]
+      ],
+      "supported_entry_modes": [
+        "cli",
+        "mcp"
+      ],
+      "supported_backends": [
+        "local",
+        "remote"
+      ],
+      "remote_coordination_mode": "single_runtime_owner",
+      "local_live_runtime_policy": "multi_context_multi_owner",
+      "remote_live_runtime_policy": "single_runtime_owner",
+      "local_support": "verified",
+      "remote_support": "verified",
+      "enforcement_layer": "hooks"
     },
     "copilot-cli": {
       "display_name": "Copilot CLI",
@@ -137,6 +173,10 @@
         }
       },
       "coordination_mode": "staged_handoff",
+      "sub_agent_mode": "puppet_sub_agents",
+      "peer_communication": "via_main_agent",
+      "agent_description_mode": "independent_files",
+      "dispatch_topology": "hub_and_spoke",
       "degradation_mode": "limited-handoffs",
       "cli_discovery_policy": "cli-reference-required",
       "required_paths": [
@@ -146,7 +186,21 @@
         "platforms/copilot-cli/.mcp.json",
         "platforms/copilot-cli/hooks/hooks.json",
         "platforms/copilot-cli/skills/rdc-debugger/SKILL.md"
-      ]
+      ],
+      "supported_entry_modes": [
+        "cli",
+        "mcp"
+      ],
+      "supported_backends": [
+        "local",
+        "remote"
+      ],
+      "remote_coordination_mode": "single_runtime_owner",
+      "local_live_runtime_policy": "single_runtime_owner",
+      "remote_live_runtime_policy": "single_runtime_owner",
+      "local_support": "verified",
+      "remote_support": "verified",
+      "enforcement_layer": "hooks"
     },
     "copilot-ide": {
       "display_name": "Copilot IDE",
@@ -184,6 +238,10 @@
         }
       },
       "coordination_mode": "staged_handoff",
+      "sub_agent_mode": "puppet_sub_agents",
+      "peer_communication": "via_main_agent",
+      "agent_description_mode": "independent_files",
+      "dispatch_topology": "hub_and_spoke",
       "degradation_mode": "no-native-hooks",
       "cli_discovery_policy": "n/a",
       "required_paths": [
@@ -192,7 +250,21 @@
         "platforms/copilot-ide/agent-plugin.json",
         "platforms/copilot-ide/.github/mcp.json",
         "platforms/copilot-ide/.github/skills/rdc-debugger/SKILL.md"
-      ]
+      ],
+      "supported_entry_modes": [
+        "cli",
+        "mcp"
+      ],
+      "supported_backends": [
+        "local",
+        "remote"
+      ],
+      "remote_coordination_mode": "single_runtime_owner",
+      "local_live_runtime_policy": "single_runtime_owner",
+      "remote_live_runtime_policy": "single_runtime_owner",
+      "local_support": "verified",
+      "remote_support": "verified",
+      "enforcement_layer": "runtime_owner"
     },
     "claude-desktop": {
       "display_name": "Claude Desktop",
@@ -229,6 +301,10 @@
         }
       },
       "coordination_mode": "workflow_stage",
+      "sub_agent_mode": "instruction_only_sub_agents",
+      "peer_communication": "none",
+      "agent_description_mode": "spawn_instruction_only",
+      "dispatch_topology": "workflow_serial",
       "degradation_mode": "desktop-mcp-only",
       "cli_discovery_policy": "mcp-discovery-ok",
       "required_paths": [
@@ -237,7 +313,20 @@
         "platforms/claude-desktop/claude_desktop_config.json",
         "platforms/claude-desktop/references/entrypoints.md",
         "platforms/claude-desktop/skills/rdc-debugger/SKILL.md"
-      ]
+      ],
+      "supported_entry_modes": [
+        "mcp"
+      ],
+      "supported_backends": [
+        "local",
+        "remote"
+      ],
+      "remote_coordination_mode": "single_runtime_owner",
+      "local_live_runtime_policy": "single_runtime_owner",
+      "remote_live_runtime_policy": "single_runtime_owner",
+      "local_support": "degraded",
+      "remote_support": "serial_only",
+      "enforcement_layer": "runtime_owner"
     },
     "manus": {
       "display_name": "Manus",
@@ -274,6 +363,10 @@
         }
       },
       "coordination_mode": "workflow_stage",
+      "sub_agent_mode": "instruction_only_sub_agents",
+      "peer_communication": "none",
+      "agent_description_mode": "spawn_instruction_only",
+      "dispatch_topology": "workflow_serial",
       "degradation_mode": "workflow-package",
       "cli_discovery_policy": "n/a",
       "required_paths": [
@@ -282,7 +375,20 @@
         "platforms/manus/references/entrypoints.md",
         "platforms/manus/workflows/00_debug_workflow.md",
         "platforms/manus/skills/rdc-debugger/SKILL.md"
-      ]
+      ],
+      "supported_entry_modes": [
+        "mcp"
+      ],
+      "supported_backends": [
+        "local",
+        "remote"
+      ],
+      "remote_coordination_mode": "single_runtime_owner",
+      "local_live_runtime_policy": "single_runtime_owner",
+      "remote_live_runtime_policy": "single_runtime_owner",
+      "local_support": "degraded",
+      "remote_support": "serial_only",
+      "enforcement_layer": "runtime_owner"
     },
     "codex": {
       "display_name": "Codex",
@@ -320,7 +426,10 @@
         }
       },
       "coordination_mode": "staged_handoff",
-      "sub_agent_direct_communication": false,
+      "sub_agent_mode": "puppet_sub_agents",
+      "peer_communication": "via_main_agent",
+      "agent_description_mode": "independent_files",
+      "dispatch_topology": "hub_and_spoke",
       "degradation_mode": "cli-first-staged-handoff",
       "cli_discovery_policy": "mcp-discovery-ok,cli-reference-required",
       "required_paths": [
@@ -328,7 +437,21 @@
         "platforms/codex/AGENTS.md",
         "platforms/codex/.codex/config.toml",
         "platforms/codex/.agents/skills/rdc-debugger/SKILL.md"
-      ]
+      ],
+      "supported_entry_modes": [
+        "cli",
+        "mcp"
+      ],
+      "supported_backends": [
+        "local",
+        "remote"
+      ],
+      "remote_coordination_mode": "single_runtime_owner",
+      "local_live_runtime_policy": "single_runtime_owner",
+      "remote_live_runtime_policy": "single_runtime_owner",
+      "local_support": "verified",
+      "remote_support": "verified",
+      "enforcement_layer": "runtime_owner"
     },
     "cursor": {
       "display_name": "Cursor",
@@ -365,7 +488,11 @@
           "rendered": "prompt-directed"
         }
       },
-      "coordination_mode": "concurrent_team",
+      "coordination_mode": "staged_handoff",
+      "sub_agent_mode": "puppet_sub_agents",
+      "peer_communication": "via_main_agent",
+      "agent_description_mode": "independent_files",
+      "dispatch_topology": "hub_and_spoke",
       "degradation_mode": "limited-hooks",
       "cli_discovery_policy": "mcp-discovery-ok,cli-reference-required",
       "required_paths": [
@@ -375,7 +502,21 @@
         "platforms/cursor/.cursor/mcp.json",
         "platforms/cursor/skills/rdc-debugger/SKILL.md",
         "platforms/cursor/hooks/hooks.json"
-      ]
+      ],
+      "supported_entry_modes": [
+        "cli",
+        "mcp"
+      ],
+      "supported_backends": [
+        "local",
+        "remote"
+      ],
+      "remote_coordination_mode": "single_runtime_owner",
+      "local_live_runtime_policy": "single_runtime_owner",
+      "remote_live_runtime_policy": "single_runtime_owner",
+      "local_support": "verified",
+      "remote_support": "verified",
+      "enforcement_layer": "hooks"
     }
   }
 }

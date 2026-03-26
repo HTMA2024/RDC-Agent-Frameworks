@@ -31,6 +31,6 @@
 - workflow 的每一阶段都必须引用共享 artifact contract。
 - `workflow_stage` 是该平台的协作上限，不模拟 team-agent 实时协作。
 - 若需要跨轮次继续调查，必须依赖可重建的 `runtime_baton`，不得凭记忆续跑 live runtime。
-- experimental remote rehydrate 不属于当前正式支持能力；若任务依赖 remote live bridge，应停止 workflow 并切回已验证该路径的平台。
+- 当前 remote 只支持 `workflow_stage + single_runtime_owner` 串行形态；若任务依赖更高阶 remote live bridge，应停止 workflow 并切回已验证该路径的平台。
 - 如需动态 tool discovery、多 live owners 或 per-agent model routing，应停止 workflow 并切回更高能力平台。
 - 在 workflow 平台上，只有 `artifacts/run_compliance.yaml` 为 `status=passed` 时，结案才算合规。

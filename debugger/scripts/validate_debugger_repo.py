@@ -222,18 +222,28 @@ def _doc_contract_findings(root: Path) -> list[str]:
         findings.append("platform-capability-matrix.md must state it is not an independent SSOT")
     if "Default Entry" not in matrix or "Allowed Entry Modes" not in matrix:
         findings.append("platform-capability-matrix.md must expose entry mode columns")
+    if "Sub-Agent Mode" not in matrix or "Peer Communication" not in matrix or "Dispatch Topology" not in matrix:
+        findings.append("platform-capability-matrix.md must expose agentic capability columns")
     if "| Claude Code |" in matrix and "CLI, MCP" not in matrix:
         findings.append("platform-capability-matrix.md must show CLI, MCP entry coverage")
     if "| Manus |" in matrix and "MCP only" not in matrix:
         findings.append("platform-capability-matrix.md must mark Manus as MCP only")
     if "唯一权威源" not in model_doc:
         findings.append("platform-capability-model.md must state JSON SSOT ownership")
-    if "experimental" not in model_doc:
-        findings.append("platform-capability-model.md must describe experimental remote handling")
+    if "sub agent 支持不等于 team agents" not in model_doc:
+        findings.append("platform-capability-model.md must distinguish sub agents from team agents")
+    if "staged_handoff" not in model_doc or "hub-and-spoke" not in model_doc:
+        findings.append("platform-capability-model.md must define staged_handoff as hub-and-spoke handoff")
+    if "serial_only" not in model_doc or "single_runtime_owner" not in model_doc:
+        findings.append("platform-capability-model.md must describe formal remote support levels and single_runtime_owner")
     if "并行 case 也必须拆成独立 `context/daemon`" not in runtime_doc:
         findings.append("runtime-coordination-model.md must define parallel case isolation")
-    if "只定义为 `experimental` 协作合同" not in runtime_doc:
-        findings.append("runtime-coordination-model.md must mark remote rehydrate as experimental")
+    if "remote_coordination_mode = single_runtime_owner" not in runtime_doc:
+        findings.append("runtime-coordination-model.md must define single_runtime_owner remote coordination")
+    if "single_runtime_owner != single_agent_flow" not in runtime_doc:
+        findings.append("runtime-coordination-model.md must state that single_runtime_owner is not single_agent_flow")
+    if "staged_handoff" not in runtime_doc or "多 specialist 多轮接力" not in runtime_doc:
+        findings.append("runtime-coordination-model.md must define staged_handoff as multi-round specialist handoff")
     if "并行 case 只能共享仓库，不得共享同一条 live `context`" not in workspace_doc:
         findings.append("workspace-layout.md must define case/context isolation")
     if "`rdc-debugger` 是唯一 framework classifier" not in core_doc:
@@ -411,10 +421,45 @@ def _compliance_findings(root: Path) -> list[str]:
         if default_entry_mode and default_entry_mode not in allowed_entry_modes:
             findings.append(f"{key}: default_entry_mode must be included in allowed_entry_modes")
 
+        sub_agent_mode = str(platform_caps.get("sub_agent_mode", "")).strip()
+        peer_communication = str(platform_caps.get("peer_communication", "")).strip()
+        agent_description_mode = str(platform_caps.get("agent_description_mode", "")).strip()
+        dispatch_topology = str(platform_caps.get("dispatch_topology", "")).strip()
+        local_live_runtime_policy = str(platform_caps.get("local_live_runtime_policy", "")).strip()
+        remote_live_runtime_policy = str(platform_caps.get("remote_live_runtime_policy", "")).strip()
+        if sub_agent_mode not in {"team_agents", "puppet_sub_agents", "instruction_only_sub_agents"}:
+            findings.append(f"{key}: invalid sub_agent_mode")
+        if peer_communication not in {"direct", "via_main_agent", "none"}:
+            findings.append(f"{key}: invalid peer_communication")
+        if agent_description_mode not in {"independent_files", "spawn_instruction_only"}:
+            findings.append(f"{key}: invalid agent_description_mode")
+        if dispatch_topology not in {"mesh", "hub_and_spoke", "workflow_serial"}:
+            findings.append(f"{key}: invalid dispatch_topology")
+        if local_live_runtime_policy not in {"multi_context_multi_owner", "single_runtime_owner"}:
+            findings.append(f"{key}: invalid local_live_runtime_policy")
+        if remote_live_runtime_policy != "single_runtime_owner":
+            findings.append(f"{key}: remote_live_runtime_policy must be single_runtime_owner")
+
         expected_mode = str(rules.get("coordination_mode", "")).strip()
         actual_mode = str(platform_caps.get("coordination_mode", "")).strip()
         if expected_mode != actual_mode:
             findings.append(f"{key}: coordination_mode mismatch ({expected_mode} != {actual_mode})")
+
+        if actual_mode == "concurrent_team":
+            if sub_agent_mode != "team_agents" or peer_communication != "direct" or dispatch_topology != "mesh":
+                findings.append(f"{key}: concurrent_team requires team_agents + direct + mesh")
+            if local_live_runtime_policy != "multi_context_multi_owner":
+                findings.append(f"{key}: concurrent_team requires multi_context_multi_owner local policy")
+        elif actual_mode == "staged_handoff":
+            if sub_agent_mode != "puppet_sub_agents" or peer_communication != "via_main_agent" or dispatch_topology != "hub_and_spoke":
+                findings.append(f"{key}: staged_handoff requires puppet_sub_agents + via_main_agent + hub_and_spoke")
+            if local_live_runtime_policy != "single_runtime_owner":
+                findings.append(f"{key}: staged_handoff requires single_runtime_owner local policy")
+        elif actual_mode == "workflow_stage":
+            if sub_agent_mode != "instruction_only_sub_agents" or peer_communication != "none" or dispatch_topology != "workflow_serial":
+                findings.append(f"{key}: workflow_stage requires instruction_only_sub_agents + none + workflow_serial")
+            if agent_description_mode != "spawn_instruction_only":
+                findings.append(f"{key}: workflow_stage requires spawn_instruction_only agent descriptions")
 
         enforcement_mode = str(rules.get("enforcement_mode", "")).strip()
         hooks_supported = _surface_supported(platform_caps, "hooks")

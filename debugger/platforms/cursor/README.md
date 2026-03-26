@@ -10,7 +10,7 @@
 - 任务开始时，Agent 必须向用户说明当前采用的是 `CLI` 还是 `MCP`。
 - 若用户要求 `MCP`，但宿主未配置对应 MCP server，必须直接阻断并提示配置。
 - 当前模板默认不预注册 MCP；若要启用，使用 `.cursor/mcp.opt-in.json` 的示例配置显式接入。
-- 当前宿主的正式支持路径是 local-first 调试与 `run_compliance.yaml` 合规裁决；`experimental remote rehydrate` 不属于默认支持能力。
+- 当前平台的 `local_support` / `remote_support` / `enforcement_layer` 以 `common/config/platform_capabilities.json` 中 `cursor` 行为准；README 不再单独发明第二套 mode 口径。
 
 使用方式：
 
@@ -34,3 +34,7 @@
 - 维护者若重跑 scaffold，必须继续产出 platform-local `common/` 最小占位目录，不得回退到跨级引用。
 - native hooks 会阻断未通过 gate 的结案；同时仍要求生成 `artifacts/run_compliance.yaml` 作为统一合规裁决。
 - `.cursorrules` 与 `hooks/hooks.json` 只负责宿主级行为提示；最终合规仍以 `artifacts/run_compliance.yaml` 为准。
+- 当前平台的 `coordination_mode = staged_handoff`，`sub_agent_mode = puppet_sub_agents`。
+- Cursor 有多个 sub agent，但它们不是 `team_agents`；所有依赖、冲突与下一轮 brief 都经主 agent 中转。
+- `staged_handoff` 在当前平台上是 hub-and-spoke 多轮接力，不是单 agent 串行切换。
+- local 与 remote 都统一采用 `single_runtime_owner`；Cursor 不把 Tools 的 local multi-context ceiling 直接提升成 platform-level concurrent team。

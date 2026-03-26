@@ -7,10 +7,14 @@
   "runtime_artifact_contract": {
     "run_root_layout": "workspace/cases/<case_id>/runs/<run_id>",
     "required_case_files": [
-      "workspace/cases/<case_id>/case.yaml"
+      "workspace/cases/<case_id>/case.yaml",
+      "workspace/cases/<case_id>/artifacts/entry_gate.yaml"
     ],
     "required_run_files": [
       "run.yaml",
+      "capture_refs.yaml",
+      "artifacts/intake_gate.yaml",
+      "artifacts/runtime_topology.yaml",
       "notes/hypothesis_board.yaml",
       "reports/report.md",
       "reports/visual_report.html"
@@ -27,6 +31,7 @@
     "write_scope_paths": {
       "workspace_control": [
         "workspace/cases/<case_id>/case.yaml",
+        "workspace/cases/<case_id>/artifacts/entry_gate.yaml",
         "workspace/cases/<case_id>/case_input.yaml",
         "workspace/cases/<case_id>/inputs/captures/manifest.yaml",
         "workspace/cases/<case_id>/inputs/references/manifest.yaml",
@@ -144,7 +149,7 @@
       "requires_run_compliance_artifact": true
     },
     "cursor": {
-      "coordination_mode": "concurrent_team",
+      "coordination_mode": "staged_handoff",
       "required_surfaces": [
         "agents",
         "skills",

@@ -35,7 +35,10 @@ if str(VALIDATORS_ROOT) not in sys.path:
 from knowledge_evolution import default_promotion_metrics, upsert_candidate  # noqa: E402
 from spec_store import active_spec_versions, load_active_sops, spec_snapshot_ref  # noqa: E402
 from hypothesis_board_validator import validate_hypothesis_board  # noqa: E402
+from entry_gate import build_entry_gate_payload  # noqa: E402
+from intake_gate import build_intake_gate_payload  # noqa: E402
 from intake_validator import validate_case_input  # noqa: E402
+from runtime_topology import build_runtime_topology_payload  # noqa: E402
 
 
 ACTION_SPECIALISTS = {
@@ -182,7 +185,206 @@ def _path_ref_matches(ref: str, expected: Path) -> bool:
         if marker in normalized_ref and marker in normalized_expected:
             if normalized_ref[normalized_ref.index(marker):] == normalized_expected[normalized_expected.index(marker):]:
                 return True
+        bare_marker = marker.strip("/")
+        if bare_marker in normalized_ref and marker in normalized_expected:
+            expected_suffix = normalized_expected[normalized_expected.index(marker) + 1 :]
+            if normalized_ref.endswith(expected_suffix):
+                return True
     return False
+
+
+def _event_validator(event: dict[str, Any]) -> str:
+    payload = event.get("payload")
+    if not isinstance(payload, dict):
+        return ""
+    return str(payload.get("validator", "")).strip()
+
+
+def _event_path(event: dict[str, Any]) -> str:
+    payload = event.get("payload")
+    if not isinstance(payload, dict):
+        return ""
+    return str(payload.get("path", "")).strip()
+
+
+def _event_payload(event: dict[str, Any]) -> dict[str, Any]:
+    payload = event.get("payload")
+    return payload if isinstance(payload, dict) else {}
+
+
+def _event_payload_str(event: dict[str, Any], key: str) -> str:
+    return str(_event_payload(event).get(key) or "").strip()
+
+
+def _resolve_runtime_baton_ref(run_root: Path, ref: str) -> Path | None:
+    text = str(ref or "").strip()
+    if not text:
+        return None
+    direct = Path(text)
+    if direct.is_file():
+        return direct
+    if not direct.is_absolute():
+        candidate = (run_root / text).resolve()
+        if candidate.is_file():
+            return candidate
+        candidate = (run_root / "artifacts" / "runtime_batons" / direct.name).resolve()
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _event_payload_contract_issues(events: list[dict[str, Any]], *, expected_entry_mode: str, expected_backend: str) -> list[str]:
+    issues: list[str] = []
+    required_event_types = {"dispatch", "tool_execution", "artifact_write", "quality_check"}
+    for event in events:
+        event_type = str(event.get("event_type", "")).strip()
+        if event_type not in required_event_types:
+            continue
+        payload = _event_payload(event)
+        event_id = str(event.get("event_id", "")).strip() or "?"
+        for field in ("entry_mode", "backend", "context_id", "runtime_owner", "baton_ref"):
+            if field not in payload:
+                issues.append(f"[event {event_id}] payload.{field} must be present for {event_type}")
+        entry_mode = str(payload.get("entry_mode") or "").strip()
+        backend = str(payload.get("backend") or "").strip()
+        if expected_entry_mode and entry_mode and entry_mode != expected_entry_mode:
+            issues.append(f"[event {event_id}] payload.entry_mode must match runtime topology ({expected_entry_mode})")
+        if expected_backend and backend and backend != expected_backend:
+            issues.append(f"[event {event_id}] payload.backend must match runtime topology ({expected_backend})")
+    return issues
+
+
+def _runtime_baton_issues(events: list[dict[str, Any]], run_root: Path) -> list[str]:
+    issues: list[str] = []
+    for event in events:
+        payload = _event_payload(event)
+        tool_name = str(payload.get("tool_name") or "").strip()
+        baton_ref = str(payload.get("baton_ref") or "").strip()
+        event_id = str(event.get("event_id", "")).strip() or "?"
+        if baton_ref and _resolve_runtime_baton_ref(run_root, baton_ref) is None:
+            issues.append(f"[event {event_id}] baton_ref does not resolve to runs/<run_id>/artifacts/runtime_batons/**")
+        if tool_name in {"rd.session.resume", "rd.session.rehydrate_runtime_baton"} and not baton_ref:
+            issues.append(f"[event {event_id}] {tool_name} must declare payload.baton_ref")
+    return issues
+
+
+def _runtime_topology_issues(
+    events: list[dict[str, Any]],
+    *,
+    coordination_mode: str,
+    backend: str,
+    applied_live_runtime_policy: str,
+) -> list[str]:
+    issues: list[str] = []
+    tool_events = [event for event in events if str(event.get("event_type", "")).strip() == "tool_execution"]
+    owner_set = {value for value in (_event_payload_str(event, "runtime_owner") for event in tool_events) if value}
+    context_set = {value for value in (_event_payload_str(event, "context_id") for event in tool_events) if value}
+    specialist_dispatches = []
+    for event in events:
+        if str(event.get("event_type", "")).strip() != "dispatch":
+            continue
+        payload = _event_payload(event)
+        target_agent = str(payload.get("target_agent") or "").strip()
+        if target_agent in ACTION_SPECIALISTS:
+            specialist_dispatches.append(event)
+    if any(str(event.get("agent_id", "")).strip() != _event_payload_str(event, "runtime_owner") for event in tool_events):
+        issues.append("tool_execution.agent_id must equal payload.runtime_owner")
+    if coordination_mode == "staged_handoff":
+        invalid_dispatchers = {
+            str(event.get("agent_id", "")).strip()
+            for event in specialist_dispatches
+            if str(event.get("agent_id", "")).strip() != "rdc-debugger"
+        }
+        if invalid_dispatchers:
+            issues.append("staged_handoff runs must keep specialist dispatch in rdc-debugger hub-and-spoke flow")
+    if coordination_mode == "workflow_stage":
+        workflow_specialists = {
+            str(event.get("agent_id", "")).strip()
+            for event in events
+            if str(event.get("event_type", "")).strip() in {"tool_execution", "artifact_write"}
+            and str(event.get("agent_id", "")).strip() in ACTION_SPECIALISTS
+        }
+        workflow_specialists.update(
+            str(_event_payload(event).get("target_agent") or "").strip()
+            for event in specialist_dispatches
+        )
+        workflow_specialists.discard("")
+        if len(workflow_specialists) > 1:
+            issues.append("workflow_stage runs must not present a stable multi-specialist network")
+    if backend == "remote" or applied_live_runtime_policy == "single_runtime_owner":
+        if len(owner_set) > 1:
+            issues.append("single-owner runs must keep a single runtime_owner across all tool_execution events")
+    elif coordination_mode == "concurrent_team" and applied_live_runtime_policy == "multi_context_multi_owner":
+        specialist_events = [event for event in tool_events if str(event.get("agent_id", "")).strip() in ACTION_SPECIALISTS]
+        distinct_specialists = {str(event.get("agent_id", "")).strip() for event in specialist_events}
+        if len(distinct_specialists) > 1 and len(context_set) < len(distinct_specialists):
+            issues.append("concurrent_team local runs must place distinct live specialists on distinct context_id values")
+    return issues
+
+
+def _specialist_handoff_path_ok(path_value: str, run_root: Path) -> bool:
+    if not path_value.strip():
+        return False
+    notes_root = run_root / "notes"
+    capture_refs = run_root / "capture_refs.yaml"
+    normalized = path_value.strip().replace("\\", "/")
+    notes_norm = _norm(notes_root).rstrip("/")
+    if _path_ref_matches(path_value, capture_refs) or normalized == notes_norm or normalized.startswith(notes_norm + "/"):
+        return True
+    if "/workspace/" in notes_norm:
+        expected_suffix = notes_norm[notes_norm.index("/workspace/") + 1 :]
+        if normalized == expected_suffix or normalized.startswith(expected_suffix + "/"):
+            return True
+    return False
+
+
+def _dispatched_specialist_handoff_issues(events: list[dict[str, Any]], run_root: Path) -> list[str]:
+    issues: list[str] = []
+    dispatched: dict[str, list[str]] = {}
+    for event in events:
+        if str(event.get("agent_id", "")).strip() != "rdc-debugger":
+            continue
+        if str(event.get("event_type", "")).strip() != "dispatch":
+            continue
+        payload = event.get("payload")
+        if not isinstance(payload, dict):
+            continue
+        target = str(payload.get("target_agent", "")).strip()
+        if target in ACTION_SPECIALISTS:
+            dispatched.setdefault(target, []).append(str(event.get("event_id", "")).strip() or "?")
+    for agent_id, refs in dispatched.items():
+        matched = any(
+            str(event.get("agent_id", "")).strip() == agent_id
+            and str(event.get("event_type", "")).strip() == "artifact_write"
+            and _specialist_handoff_path_ok(_event_path(event), run_root)
+            for event in events
+        )
+        if not matched:
+            issues.append(f"{agent_id} dispatched by rdc-debugger but did not write notes/** or capture_refs.yaml")
+    return issues
+
+
+def _intake_gate_order_issues(events: list[dict[str, Any]]) -> list[str]:
+    gate_pass_index: int | None = None
+    for index, event in enumerate(events):
+        if str(event.get("event_type", "")).strip() != "quality_check":
+            continue
+        if _event_validator(event) != "intake_gate":
+            continue
+        if str(event.get("status", "")).strip() != "pass":
+            continue
+        gate_pass_index = index
+        break
+    if gate_pass_index is None:
+        return ["action_chain must contain a passed intake_gate quality_check event before live analysis"]
+    issues: list[str] = []
+    for index, event in enumerate(events):
+        if index >= gate_pass_index:
+            break
+        event_type = str(event.get("event_type", "")).strip()
+        if event_type in {"dispatch", "tool_execution"}:
+            issues.append(f"{event_type} occurred before intake_gate pass: {str(event.get('event_id', '')).strip() or '?'}")
+    return issues
 
 
 def _fix_verification_issues(data: Any) -> list[str]:
@@ -782,11 +984,17 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
         raise KeyError(f"unknown platform in platform_capabilities.json: {platform}")
 
     checks: list[dict[str, Any]] = []
-    case_yaml = run_root.parent.parent / "case.yaml"
-    case_input = run_root.parent.parent / "case_input.yaml"
-    references_manifest = run_root.parent.parent / "inputs" / "references" / "manifest.yaml"
+    case_root = run_root.parent.parent
+    case_yaml = case_root / "case.yaml"
+    case_input = case_root / "case_input.yaml"
+    entry_gate = case_root / "artifacts" / "entry_gate.yaml"
+    captures_manifest = case_root / "inputs" / "captures" / "manifest.yaml"
+    references_manifest = case_root / "inputs" / "references" / "manifest.yaml"
     run_yaml = run_root / "run.yaml"
+    capture_refs = run_root / "capture_refs.yaml"
     fix_verification = run_root / "artifacts" / "fix_verification.yaml"
+    intake_gate = run_root / "artifacts" / "intake_gate.yaml"
+    runtime_topology = run_root / "artifacts" / "runtime_topology.yaml"
     hypothesis_board = run_root / "notes" / "hypothesis_board.yaml"
     report_md = run_root / "reports" / "report.md"
     visual_report = run_root / "reports" / "visual_report.html"
@@ -801,9 +1009,14 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
 
     _check(checks, "case_yaml", case_yaml.is_file(), "case.yaml must exist", path=case_yaml)
     _check(checks, "case_input", case_input.is_file(), "case_input.yaml must exist", path=case_input)
+    _check(checks, "entry_gate_artifact", entry_gate.is_file(), "workspace/cases/<case_id>/artifacts/entry_gate.yaml must exist", path=entry_gate)
+    _check(checks, "captures_manifest", captures_manifest.is_file(), "inputs/captures/manifest.yaml must exist", path=captures_manifest)
     _check(checks, "references_manifest", references_manifest.is_file(), "inputs/references/manifest.yaml must exist", path=references_manifest)
     _check(checks, "run_yaml", run_yaml.is_file(), "run.yaml must exist", path=run_yaml)
+    _check(checks, "capture_refs", capture_refs.is_file(), "runs/<run_id>/capture_refs.yaml must exist", path=capture_refs)
     _check(checks, "fix_verification", fix_verification.is_file(), "artifacts/fix_verification.yaml must exist", path=fix_verification)
+    _check(checks, "intake_gate_artifact", intake_gate.is_file(), "artifacts/intake_gate.yaml must exist", path=intake_gate)
+    _check(checks, "runtime_topology_artifact", runtime_topology.is_file(), "artifacts/runtime_topology.yaml must exist", path=runtime_topology)
     _check(checks, "hypothesis_board", hypothesis_board.is_file(), "notes/hypothesis_board.yaml must exist", path=hypothesis_board)
     _check(checks, "report_md", report_md.is_file(), "reports/report.md must exist", path=report_md)
     _check(checks, "visual_report_html", visual_report.is_file(), "reports/visual_report.html must exist", path=visual_report)
@@ -835,12 +1048,27 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
     snapshot = snapshot if isinstance(snapshot, dict) else {}
     skeptic_data = _read_yaml(skeptic_signoff) if skeptic_signoff.is_file() else {}
     case_input_data = _read_yaml(case_input) if case_input.is_file() else {}
+    entry_gate_data = _read_yaml(entry_gate) if entry_gate.is_file() else {}
     references_manifest_data = _read_yaml(references_manifest) if references_manifest.is_file() else {}
     fix_verification_data = _read_yaml(fix_verification) if fix_verification.is_file() else {}
+    intake_gate_data = _read_yaml(intake_gate) if intake_gate.is_file() else {}
+    runtime_topology_data = _read_yaml(runtime_topology) if runtime_topology.is_file() else {}
     hypothesis_board_data = _read_yaml(hypothesis_board) if hypothesis_board.is_file() else {}
     events = _load_action_chain(action_chain) if action_chain.is_file() else []
     indexed = _event_index(events)
     active_manifest = root / "common" / "knowledge" / "spec" / "registry" / "active_manifest.yaml"
+    computed_entry_gate = build_entry_gate_payload(
+        root,
+        case_root,
+        platform=platform,
+        entry_mode=str((entry_gate_data or {}).get("entry_mode") or (platform_caps.get("default_entry_mode") or "cli")).strip() or "cli",
+        backend=str((entry_gate_data or {}).get("backend") or "local").strip() or "local",
+        capture_paths=list(((entry_gate_data or {}).get("request") or {}).get("capture_paths") or []),
+        mcp_configured=bool(((entry_gate_data or {}).get("request") or {}).get("mcp_configured")),
+        remote_transport=str(((entry_gate_data or {}).get("request") or {}).get("remote_transport") or "").strip(),
+    )
+    computed_intake_gate = build_intake_gate_payload(root, run_root)
+    computed_runtime_topology = build_runtime_topology_payload(root, run_root, platform=platform)
 
     _check(checks, "action_chain_nonempty", bool(events), "action_chain.jsonl must contain at least one event", path=action_chain if action_chain.is_file() else None)
     expected_snapshot = spec_snapshot_ref(root)
@@ -872,10 +1100,59 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
             schema_issues.append(f"{prefix}refs must be a list")
         if not isinstance(event.get("payload"), dict):
             schema_issues.append(f"{prefix}payload must be an object")
+        elif str(event.get("event_type", "")).strip() in {"dispatch", "tool_execution", "artifact_write", "quality_check"}:
+            for field in ("entry_mode", "backend", "context_id", "runtime_owner", "baton_ref"):
+                if field not in event["payload"]:
+                    schema_issues.append(f"{prefix}payload.{field} must be present")
     _check(checks, "action_chain_schema", not schema_issues, "action_chain events must follow schema_version=2", path=action_chain if action_chain.is_file() else None, refs=schema_issues[:8] or None)
 
     case_input_issues = validate_case_input(case_input_data) if case_input.is_file() else ["case_input missing"]
     _check(checks, "case_input_schema", not case_input_issues, "case_input.yaml must satisfy intake schema", path=case_input if case_input.is_file() else None, refs=case_input_issues[:8] or None)
+
+    entry_gate_issues: list[str] = []
+    if not isinstance(entry_gate_data, dict):
+        entry_gate_issues.append("entry_gate artifact must be a YAML object")
+    else:
+        if str(entry_gate_data.get("status", "")).strip() != "passed":
+            entry_gate_issues.append("entry_gate.status must be passed")
+        if str(entry_gate_data.get("platform", "")).strip() and str(entry_gate_data.get("platform", "")).strip() != platform:
+            entry_gate_issues.append("entry_gate.platform must match the audited platform")
+    if str(computed_entry_gate.get("status", "")).strip() != "passed":
+        entry_gate_issues.append("recomputed entry_gate blocks the audited case state")
+    _check(
+        checks,
+        "entry_gate_status",
+        not entry_gate_issues,
+        "entry_gate.yaml must exist and record a passed platform/mode preflight",
+        path=entry_gate if entry_gate.is_file() else None,
+        refs=entry_gate_issues[:8] or None,
+    )
+
+    intake_gate_failures = [item["id"] for item in computed_intake_gate.get("checks", []) if item.get("result") != "pass"]
+    _check(
+        checks,
+        "capture_manifest_integrity",
+        "captures_manifest_schema" not in intake_gate_failures,
+        "inputs/captures/manifest.yaml must be structurally valid",
+        path=captures_manifest if captures_manifest.is_file() else None,
+        refs=intake_gate_failures or None,
+    )
+    _check(
+        checks,
+        "capture_imported_files",
+        "imported_capture_files" not in intake_gate_failures,
+        "inputs/captures/manifest.yaml must resolve to imported .rdc files on disk",
+        path=captures_manifest if captures_manifest.is_file() else None,
+        refs=intake_gate_failures or None,
+    )
+    _check(
+        checks,
+        "capture_refs_integrity",
+        "capture_refs_schema" not in intake_gate_failures,
+        "capture_refs.yaml must reference imported captures from inputs/captures/manifest.yaml",
+        path=capture_refs if capture_refs.is_file() else None,
+        refs=intake_gate_failures or None,
+    )
 
     references_issues: list[str] = []
     if not isinstance(references_manifest_data, dict):
@@ -901,6 +1178,56 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
         "accepted debugger runs must carry an intent_gate from rdc-debugger",
         path=hypothesis_board if hypothesis_board.is_file() else None,
         refs=intent_gate_issues[:8] or None,
+    )
+
+    intake_gate_artifact_issues: list[str] = []
+    if not isinstance(intake_gate_data, dict):
+        intake_gate_artifact_issues.append("intake_gate artifact must be a YAML object")
+    else:
+        if str(intake_gate_data.get("status", "")).strip() != "passed":
+            intake_gate_artifact_issues.append("intake_gate.status must be passed")
+        if str(intake_gate_data.get("run_root", "")).strip() and str(intake_gate_data.get("run_root", "")).strip() != _norm(run_root):
+            intake_gate_artifact_issues.append("intake_gate.run_root must match the audited run_root")
+    if str(computed_intake_gate.get("status", "")).strip() != "passed":
+        intake_gate_artifact_issues.append("recomputed intake_gate fails for the audited workspace state")
+    _check(
+        checks,
+        "intake_gate_status",
+        not intake_gate_artifact_issues,
+        "intake_gate.yaml must exist and record a passed intake gate for this run",
+        path=intake_gate if intake_gate.is_file() else None,
+        refs=intake_gate_artifact_issues[:8] or None,
+    )
+
+    runtime_topology_issues: list[str] = []
+    if not isinstance(runtime_topology_data, dict):
+        runtime_topology_issues.append("runtime_topology artifact must be a YAML object")
+    else:
+        if str(runtime_topology_data.get("status", "")).strip() != "passed":
+            runtime_topology_issues.append("runtime_topology.status must be passed")
+        if str(runtime_topology_data.get("entry_mode", "")).strip() != str(computed_runtime_topology.get("entry_mode", "")).strip():
+            runtime_topology_issues.append("runtime_topology.entry_mode must match the recomputed topology")
+        if str(runtime_topology_data.get("backend", "")).strip() != str(computed_runtime_topology.get("backend", "")).strip():
+            runtime_topology_issues.append("runtime_topology.backend must match the recomputed topology")
+        for field in (
+            "sub_agent_mode",
+            "peer_communication",
+            "agent_description_mode",
+            "dispatch_topology",
+            "runtime_parallelism_ceiling",
+            "applied_live_runtime_policy",
+        ):
+            if str(runtime_topology_data.get(field, "")).strip() != str(computed_runtime_topology.get(field, "")).strip():
+                runtime_topology_issues.append(f"runtime_topology.{field} must match the recomputed topology")
+    if str(computed_runtime_topology.get("status", "")).strip() != "passed":
+        runtime_topology_issues.append("recomputed runtime_topology fails for the audited run state")
+    _check(
+        checks,
+        "runtime_topology_status",
+        not runtime_topology_issues,
+        "runtime_topology.yaml must exist and describe the run topology for this action chain",
+        path=runtime_topology if runtime_topology.is_file() else None,
+        refs=runtime_topology_issues[:8] or None,
     )
 
     fix_verification_issues = _fix_verification_issues(fix_verification_data) if fix_verification.is_file() else ["fix_verification missing"]
@@ -935,18 +1262,86 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
     _check(checks, "counterfactual_review", not cf_issues, "counterfactual reviews must be independently approved and structurally complete", path=session_evidence if session_evidence.is_file() else None, refs=cf_issues[:8] or None)
     _check(checks, "skeptic_signoff_status", _skeptic_signed(skeptic_data), "skeptic_signoff artifact must contain a signed approval", path=skeptic_signoff if skeptic_signoff.is_file() else None)
 
+    topology_entry_mode = str((runtime_topology_data or {}).get("entry_mode") or (computed_runtime_topology or {}).get("entry_mode") or "").strip()
+    topology_backend = str((runtime_topology_data or {}).get("backend") or (computed_runtime_topology or {}).get("backend") or "").strip()
+    topology_live_policy = str((runtime_topology_data or {}).get("applied_live_runtime_policy") or (computed_runtime_topology or {}).get("applied_live_runtime_policy") or "").strip()
     dispatch_ok = any(str(e.get("event_type", "")).strip() == "dispatch" and str(e.get("agent_id", "")).strip() == "rdc-debugger" for e in events)
-    specialist_ok = any(str(e.get("event_type", "")).strip() == "tool_execution" and str(e.get("agent_id", "")).strip() in ACTION_SPECIALISTS for e in events)
+    live_tool_ok = any(str(e.get("event_type", "")).strip() == "tool_execution" for e in events)
+    specialist_tool_ok = any(str(e.get("event_type", "")).strip() == "tool_execution" and str(e.get("agent_id", "")).strip() in ACTION_SPECIALISTS for e in events)
+    intake_gate_order_issues = _intake_gate_order_issues(events)
+    payload_contract_issues = _event_payload_contract_issues(events, expected_entry_mode=topology_entry_mode, expected_backend=topology_backend)
+    runtime_owner_issues = _runtime_topology_issues(
+        events,
+        coordination_mode=expected_coordination,
+        backend=topology_backend or "local",
+        applied_live_runtime_policy=topology_live_policy or "single_runtime_owner",
+    )
+    runtime_baton_issues = _runtime_baton_issues(events, run_root)
+    specialist_handoff_issues = _dispatched_specialist_handoff_issues(events, run_root)
     skeptic_ok = any(str(e.get("agent_id", "")).strip() == "skeptic_agent" and str(e.get("event_type", "")).strip() in {"conflict_resolved", "counterfactual_reviewed", "quality_check"} for e in events)
     curator_ok = any(
         str(e.get("agent_id", "")).strip() == "curator_agent"
-        and str(e.get("event_type", "")).strip() in {"artifact_write", "knowledge_candidate_emitted", "knowledge_candidate_transition"}
+        and str(e.get("event_type", "")).strip() == "artifact_write"
+        and _path_ref_matches(_event_path(e), report_md)
         for e in events
     )
     _check(checks, "action_chain_dispatch", dispatch_ok, "action_chain must contain a dispatch event from rdc-debugger", path=action_chain if action_chain.is_file() else None)
-    _check(checks, "action_chain_specialist", specialist_ok, "action_chain must contain specialist tool_execution evidence", path=action_chain if action_chain.is_file() else None)
+    _check(
+        checks,
+        "action_chain_live_execution",
+        live_tool_ok,
+        "action_chain must contain live tool_execution evidence",
+        path=action_chain if action_chain.is_file() else None,
+    )
+    _check(
+        checks,
+        "action_chain_specialist",
+        specialist_tool_ok if expected_coordination == "concurrent_team" and (topology_backend or "local") == "local" else True,
+        "concurrent_team local runs must contain at least one specialist-owned tool_execution",
+        path=action_chain if action_chain.is_file() else None,
+    )
+    _check(
+        checks,
+        "intake_gate_before_analysis",
+        not intake_gate_order_issues,
+        "intake_gate pass must appear in action_chain before any dispatch or tool_execution",
+        path=action_chain if action_chain.is_file() else None,
+        refs=intake_gate_order_issues[:8] or None,
+    )
+    _check(
+        checks,
+        "action_chain_runtime_payload",
+        not payload_contract_issues,
+        "dispatch/tool_execution/artifact_write/quality_check payloads must carry entry_mode/backend/context_id/runtime_owner/baton_ref",
+        path=action_chain if action_chain.is_file() else None,
+        refs=payload_contract_issues[:8] or None,
+    )
+    _check(
+        checks,
+        "runtime_owner_topology",
+        not runtime_owner_issues,
+        "runtime owner and context usage must match the run coordination mode and backend",
+        path=action_chain if action_chain.is_file() else None,
+        refs=runtime_owner_issues[:8] or None,
+    )
+    _check(
+        checks,
+        "runtime_baton_contract",
+        not runtime_baton_issues,
+        "runtime baton refs must resolve and live resume operations must declare baton_ref",
+        path=action_chain if action_chain.is_file() else None,
+        refs=runtime_baton_issues[:8] or None,
+    )
+    _check(
+        checks,
+        "staged_handoff_artifacts",
+        not specialist_handoff_issues,
+        "each dispatched specialist must leave a handoff artifact in runs/<run_id>/notes/** or capture_refs.yaml",
+        path=action_chain if action_chain.is_file() else None,
+        refs=specialist_handoff_issues[:8] or None,
+    )
     _check(checks, "action_chain_skeptic", skeptic_ok, "action_chain must contain skeptic review activity", path=action_chain if action_chain.is_file() else None)
-    _check(checks, "action_chain_curator", curator_ok, "action_chain must contain curator artifact/proposal writes", path=action_chain if action_chain.is_file() else None)
+    _check(checks, "action_chain_curator", curator_ok, "action_chain must contain curator report artifact_write activity", path=action_chain if action_chain.is_file() else None)
 
     report_text = "\n".join(_text(path) for path in (report_md, visual_report) if path.is_file())
     report_session_ids = _extract_matches(report_text, SESSION_RE)
@@ -987,9 +1382,14 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
         "paths": {
             "case_yaml": _norm(case_yaml),
             "case_input": _norm(case_input),
+            "entry_gate": _norm(entry_gate),
+            "captures_manifest": _norm(captures_manifest),
             "references_manifest": _norm(references_manifest),
             "run_yaml": _norm(run_yaml),
+            "capture_refs": _norm(capture_refs),
             "fix_verification": _norm(fix_verification),
+            "intake_gate": _norm(intake_gate),
+            "runtime_topology": _norm(runtime_topology),
             "hypothesis_board": _norm(hypothesis_board),
             "session_evidence": _norm(session_evidence),
             "skeptic_signoff": _norm(skeptic_signoff),
@@ -1033,7 +1433,16 @@ def main() -> int:
             "status": "pass" if payload["status"] == "passed" else "fail",
             "duration_ms": 0,
             "refs": [],
-            "payload": {"validator": "run_compliance_audit", "summary": f"run compliance audit {payload['status']}"},
+            "payload": {
+                "validator": "run_compliance_audit",
+                "summary": f"run compliance audit {payload['status']}",
+                "path": _norm(run_root / "artifacts" / "run_compliance.yaml"),
+                "entry_mode": str((_read_yaml(run_root / "artifacts" / "runtime_topology.yaml") or {}).get("entry_mode", "cli")).strip() if (run_root / "artifacts" / "runtime_topology.yaml").is_file() else "cli",
+                "backend": str((_read_yaml(run_root / "artifacts" / "runtime_topology.yaml") or {}).get("backend", "local")).strip() if (run_root / "artifacts" / "runtime_topology.yaml").is_file() else "local",
+                "context_id": str(((_read_yaml(run_root / "artifacts" / "runtime_topology.yaml") or {}).get("contexts") or ["default"])[0]),
+                "runtime_owner": str(((_read_yaml(run_root / "artifacts" / "runtime_topology.yaml") or {}).get("owners") or ["rdc-debugger"])[0]),
+                "baton_ref": "",
+            },
         },
     )
     _dump_yaml(run_root / "artifacts" / "run_compliance.yaml", payload)

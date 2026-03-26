@@ -288,9 +288,23 @@ def _public_entry_skill(ctx: dict[str, Any]) -> str:
 
 
 def main_skill_wrapper_text(ctx: dict[str, Any], platform_key: str) -> str:
-    display_name = str((ctx["platform_capabilities"]["platforms"][platform_key] or {}).get("display_name", platform_key)).strip()
+    platform_row = ctx["platform_capabilities"]["platforms"][platform_key] or {}
+    display_name = str(platform_row.get("display_name", platform_key)).strip()
     public_entry_skill = _public_entry_skill(ctx)
-    return f"""# `RDC Debugger` 主技能包装说明
+    coordination_mode = str(platform_row.get("coordination_mode") or "").strip()
+    sub_agent_mode = str(platform_row.get("sub_agent_mode") or "").strip()
+    peer_communication = str(platform_row.get("peer_communication") or "").strip()
+    agent_description_mode = str(platform_row.get("agent_description_mode") or "").strip()
+    local_live_runtime_policy = str(platform_row.get("local_live_runtime_policy") or "").strip()
+    remote_live_runtime_policy = str(platform_row.get("remote_live_runtime_policy") or "").strip()
+    return f"""---
+name: {public_entry_skill}
+description: Public main skill for the RenderDoc/RDC GPU debugger framework. Use when the user wants defect diagnosis, root-cause analysis, regression explanation, or fix verification for a GPU rendering issue from one or more `.rdc` captures.
+metadata:
+  short-description: RenderDoc/RDC GPU debugging workflow for .rdc captures
+---
+
+# `RDC Debugger` 主技能包装说明
 
 当前文件是 {display_name} 的 public main skill 入口。
 
@@ -299,17 +313,34 @@ def main_skill_wrapper_text(ctx: dict[str, Any], platform_key: str) -> str:
 进入 `{public_entry_skill}` 后，本 skill 负责：
 
 - `intent_gate`
+- `entry_gate`
 - preflight
 - 缺失输入补料
 - intake 规范化
-- case/run 初始化
+- capture 导入 + case/run 初始化
+- `artifacts/intake_gate.yaml`
+- `artifacts/runtime_topology.yaml`
 - specialist 分派、阶段推进与质量门裁决
+
+固定顺序：
+
+1. `intent_gate`
+2. `entry_gate`
+3. binding/preflight + capture import + case/run bootstrap
+4. `artifacts/intake_gate.yaml` pass
+5. `artifacts/runtime_topology.yaml`
+6. `{coordination_mode}`
+7. `artifacts/run_compliance.yaml` pass
+
+在 `artifacts/intake_gate.yaml` 通过前，不得进入 specialist dispatch 或 live `rd.*` 分析。
 
 本 skill 只引用当前平台根目录的 `common/`：
 
 - common/skills/{public_entry_skill}/SKILL.md
 - 进入任何平台真相相关工作前，必须先校验 common/config/platform_adapter.json
-- coordination_mode 与降级边界以 common/config/platform_capabilities.json 的当前平台定义为准。
+- local_support / remote_support / enforcement_layer / coordination_mode 统一以 common/config/platform_capabilities.json 的当前平台定义为准。
+- 当前平台的 `sub_agent_mode = {sub_agent_mode}`，`peer_communication = {peer_communication}`，`agent_description_mode = {agent_description_mode}`。
+- local live policy = `{local_live_runtime_policy}`；remote live policy = `{remote_live_runtime_policy}`。
 
 未先将顶层 `debugger/common/` 拷入当前平台根目录的 `common/` 之前，不允许在宿主中使用当前平台模板。
 
@@ -318,7 +349,8 @@ def main_skill_wrapper_text(ctx: dict[str, Any], platform_key: str) -> str:
 
 
 def role_skill_wrapper_text(ctx: dict[str, Any], platform_key: str, role: dict[str, Any]) -> str:
-    display_name = str((ctx["platform_capabilities"]["platforms"][platform_key] or {}).get("display_name", platform_key)).strip()
+    platform_row = ctx["platform_capabilities"]["platforms"][platform_key] or {}
+    display_name = str(platform_row.get("display_name", platform_key)).strip()
     public_entry_skill = _public_entry_skill(ctx)
     role_skill = str(role["role_skill_path"]).replace("\\", "/")
     role_intro = "该角色默认是 internal/debug-only specialist。平台启动后不会自动进入该角色；只有用户手动召唤 `rdc-debugger` 并由它分派时，才进入当前 role。"
@@ -334,6 +366,8 @@ def role_skill_wrapper_text(ctx: dict[str, Any], platform_key: str, role: dict[s
 1. common/skills/{public_entry_skill}/SKILL.md
 2. common/{role_skill}
 3. common/config/platform_capabilities.json
+
+当前平台的 `coordination_mode = {str(platform_row.get("coordination_mode") or "").strip()}`，`sub_agent_mode = {str(platform_row.get("sub_agent_mode") or "").strip()}`，`peer_communication = {str(platform_row.get("peer_communication") or "").strip()}`。
 
 未先将顶层 `debugger/common/` 拷入当前平台根目录的 `common/` 之前，不允许在宿主中使用当前平台模板。
 运行时 case/run 现场与第二层报告统一写入平台根目录下的 `workspace/`

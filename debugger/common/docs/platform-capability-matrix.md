@@ -1,26 +1,26 @@
-﻿# Platform Capability Matrix（平台能力矩阵）
+# Platform Capability Matrix（平台能力矩阵）
 
 本矩阵是 `common/config/platform_capabilities.json` 的文档镜像，不是独立 SSOT。
 
-| 平台 Platform | 自定义 Agents | Skills | Hooks | MCP | 默认入口 Default Entry | 允许入口 Allowed Entry Modes | Per-Agent Model | Handoffs | Coordination Mode | Packaging |
-|---|---|---|---|---|---|---|---|---|---|---|
-| Code Buddy | Yes | Yes | Yes | Yes | `CLI` | `CLI, MCP` | Explicit | Prompt-directed | `concurrent_team` | Plugin bundle |
-| Claude Code | Yes | Yes | Yes | Yes | `CLI` | `CLI, MCP` | Alias-level | Prompt-directed | `concurrent_team` | Project config plus subagents |
-| Copilot CLI | Yes | Yes | Yes | Yes | `CLI` | `CLI, MCP` | Explicit | Limited | `staged_handoff` | CLI plugin |
-| Copilot IDE | Yes | Yes (wrapper) | Documented boundary | Yes | `CLI` | `CLI, MCP` | Preferred | Native | `staged_handoff` | `.github/agents` plus MCP |
-| Claude Desktop | No | Yes (wrapper) | No | Yes | `MCP` | `MCP only` | Inherit-only | Workflow brief only | `workflow_stage` | Desktop MCP config |
-| Manus | Workflow-only | Yes (wrapper) | No | Yes | `MCP` | `MCP only` | Inherit-only | Workflow-level | `workflow_stage` | Workflow package |
-| Codex | Yes | Yes | No | Yes | `CLI` | `CLI, MCP` | Config-file | Multi-agent | `staged_handoff` | Workspace-native |
-| Cursor | Yes | Yes | Yes | Yes | `CLI` | `CLI, MCP` | Explicit | Prompt-directed | `concurrent_team` | Project config plus rules |
+| 平台 Platform | Coordination Mode | Sub-Agent Mode | Peer Communication | Agent Description | Dispatch Topology | Default Entry | Allowed Entry Modes | Local Live Policy | Remote Live Policy | Local Support | Remote Support | Enforcement |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| Code Buddy | `concurrent_team` | `team_agents` | `direct` | `independent_files` | `mesh` | `CLI` | `CLI, MCP` | `multi_context_multi_owner` | `single_runtime_owner` | `verified` | `verified` | `hooks` |
+| Claude Code | `concurrent_team` | `team_agents` | `direct` | `independent_files` | `mesh` | `CLI` | `CLI, MCP` | `multi_context_multi_owner` | `single_runtime_owner` | `verified` | `verified` | `hooks` |
+| Copilot CLI | `staged_handoff` | `puppet_sub_agents` | `via_main_agent` | `independent_files` | `hub_and_spoke` | `CLI` | `CLI, MCP` | `single_runtime_owner` | `single_runtime_owner` | `verified` | `verified` | `hooks` |
+| Copilot IDE | `staged_handoff` | `puppet_sub_agents` | `via_main_agent` | `independent_files` | `hub_and_spoke` | `CLI` | `CLI, MCP` | `single_runtime_owner` | `single_runtime_owner` | `verified` | `verified` | `runtime_owner` |
+| Claude Desktop | `workflow_stage` | `instruction_only_sub_agents` | `none` | `spawn_instruction_only` | `workflow_serial` | `MCP` | `MCP only` | `single_runtime_owner` | `single_runtime_owner` | `degraded` | `serial_only` | `runtime_owner` |
+| Manus | `workflow_stage` | `instruction_only_sub_agents` | `none` | `spawn_instruction_only` | `workflow_serial` | `MCP` | `MCP only` | `single_runtime_owner` | `single_runtime_owner` | `degraded` | `serial_only` | `runtime_owner` |
+| Codex | `staged_handoff` | `puppet_sub_agents` | `via_main_agent` | `independent_files` | `hub_and_spoke` | `CLI` | `CLI, MCP` | `single_runtime_owner` | `single_runtime_owner` | `verified` | `verified` | `runtime_owner` |
+| Cursor | `staged_handoff` | `puppet_sub_agents` | `via_main_agent` | `independent_files` | `hub_and_spoke` | `CLI` | `CLI, MCP` | `single_runtime_owner` | `single_runtime_owner` | `verified` | `verified` | `hooks` |
 
 ## 说明
 
-- `code-buddy`、`copilot-ide` 与 `copilot-cli` 在本仓中按显式 per-agent routing 宿主处理。
-- `cursor` 与 `code-buddy`、`copilot-cli` 一样，按显式 per-agent routing 宿主处理。
-- `claude-code` 支持 per-agent routing，但可选模型族仍受宿主模型池限制；若宿主仍要求 session bootstrap agent，可保留 `rdc-debugger` 作为内部 bootstrap/orchestrator，而 public user entry 统一保持 `rdc-debugger`。
-- `codex`、`claude-code`、`code-buddy`、`copilot-cli`、`copilot-ide`、`cursor` 当前默认走 `CLI`，但用户可强制切到 `MCP`。
-- `claude-desktop` 与 `manus` 属于 inherit-only 的降级宿主，但工具入口只允许 `MCP`，同时仍提供 wrapper skill 作为统一入口语义。
-- `codex` 保留 per-agent 配置文件，但当前批准的路由模型族统一为 GPT。
-- remote / live bridge 只保留为 `experimental` 协作合同，不计入本矩阵中的当前正式支持能力。
-- remote live-debug 的 owner 仍遵守共享 runtime 规则：每条 live 链路只能有一个 runtime owner。
-- remote live-debug 即便仍是 `experimental`，也必须按 same-event truthful failure 解释：成功 trace 与结构化 blocked/runtime failure 都是当前可依赖的结果面，不能再把“没拿到 trace”写成平台 silent fallback。
+- `sub_agent_mode` 描述宿主的 agentic 形态，不等于 runtime 并行能力。
+- `team_agents` 只表示子 agent 之间可直接通信；当前只有 `claude-code` 与 `code-buddy` 属于这一档。
+- `puppet_sub_agents` 表示存在多个 specialist，但 specialist 之间不能直连；所有依赖、冲突与下一轮 brief 都经主 agent 中转。
+- `instruction_only_sub_agents` 表示宿主不承载独立 agent 描述文件；如需子 agent，只能在主 agent 实例化时注入 instruction。
+- `staged_handoff` 是 hub-and-spoke 多轮接力，不是单 agent 串行切换。
+- `workflow_stage` 才是接近串行阶段流的协作上限。
+- `remote` 已进入当前正式能力矩阵，但所有平台都服从 `single_runtime_owner`。
+- `local` 只有在 `coordination_mode=concurrent_team` 且 `sub_agent_mode=team_agents` 时，才允许 `multi_context_multi_owner`。
+- `Enforcement` 中的 `hooks` / `runtime_owner` 只描述执行门禁落点；最终合规仍以 `artifacts/run_compliance.yaml` 为准。

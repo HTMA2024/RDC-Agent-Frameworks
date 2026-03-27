@@ -60,6 +60,8 @@ field_rules:
       - counterfactual_reviewed
       - artifact_write
       - quality_check
+      - workflow_stage_transition
+      - process_deviation
       - knowledge_candidate_emitted
       - knowledge_candidate_transition
   status:
@@ -71,6 +73,22 @@ field_rules:
     type: list
   payload:
     type: object
+
+common_runtime_payload_required:
+  applies_to:
+    - dispatch
+    - tool_execution
+    - artifact_write
+    - quality_check
+  required_fields:
+    - entry_mode
+    - backend
+    - context_id
+    - runtime_owner
+    - baton_ref
+    - context_binding_id
+    - capture_ref
+    - canonical_anchor_ref
 
 event_types:
   dispatch:
@@ -139,6 +157,22 @@ event_types:
     payload_required:
       - validator
       - summary
+  workflow_stage_transition:
+    statuses: [entered, exited, blocked]
+    payload_required:
+      - workflow_stage
+      - blocking_code
+      - blocking_codes
+      - required_artifacts_before_transition
+  process_deviation:
+    statuses: [detected]
+    payload_required:
+      - deviation_code
+      - deviation_stage
+      - deviation_detected_by
+      - blocking_code
+      - impact_on_verdict
+      - required_recovery_action
   knowledge_candidate_emitted:
     statuses: [emitted, updated]
     payload_required:

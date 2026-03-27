@@ -40,6 +40,15 @@ FALLBACK_EXECUTION_MODES = {"wrapper", "local_renderdoc_python"}
 DEGRADED_REASONS = {
     "WRAPPER_DEGRADED_LOCAL_DIRECT",
 }
+WORKFLOW_PHASE_TO_STAGE = {
+    "intake": "intake_gate_passed",
+    "triage": "specialist_briefs_collected",
+    "investigation": "expert_investigation_complete",
+    "validation": "fix_verification_complete",
+    "reporting": "curator_ready",
+    "completed": "finalized",
+    "blocked": "expert_investigation_complete",
+}
 
 
 def _debugger_root(default: Path | None = None) -> Path:
@@ -127,6 +136,146 @@ def _mode_key(entry_mode: str, backend: str) -> str:
 def _safe_token(value: str, fallback: str = "default") -> str:
     text = _SAFE_TOKEN_RE.sub("-", str(value or "").strip()).strip("-._")
     return text or fallback
+
+
+def _workflow_stage(run_root: Path, run_data: dict[str, Any]) -> str:
+    candidate = str(((run_data.get("runtime") or {}).get("workflow_stage")) or "").strip()
+    if candidate:
+        return candidate
+    session_id = str(
+        run_data.get("session_id")
+        or ((run_data.get("debug") or {}).get("session_id") if isinstance(run_data.get("debug"), dict) else "")
+        or ((run_data.get("runtime") or {}).get("session_id") if isinstance(run_data.get("runtime"), dict) else "")
+        or ""
+    ).strip()
+    repo_root = next((path for path in [run_root, *run_root.parents] if (path / "common").is_dir()), None)
+    action_chain = (repo_root / "common" / "knowledge" / "library" / "sessions" / session_id / "action_chain.jsonl") if repo_root and session_id else None
+    if action_chain and action_chain.is_file():
+        for event in reversed(_load_action_chain(action_chain)):
+            if str(event.get("event_type") or "").strip() != "workflow_stage_transition":
+                continue
+            stage = str(((event.get("payload") or {}).get("workflow_stage")) or "").strip()
+            if stage:
+                return stage
+    fix_verification_path = run_root / "artifacts" / "fix_verification.yaml"
+    if fix_verification_path.is_file():
+        return "fix_verification_complete"
+    intake_gate_path = run_root / "artifacts" / "intake_gate.yaml"
+    intake_gate = _read_yaml(intake_gate_path) if intake_gate_path.is_file() else {}
+    if isinstance(intake_gate, dict) and str(intake_gate.get("status") or "").strip() == "passed":
+        return "intake_gate_passed"
+    entry_gate_path = run_root.parent.parent / "artifacts" / "entry_gate.yaml"
+    entry_gate = _read_yaml(entry_gate_path) if entry_gate_path.is_file() else {}
+    if isinstance(entry_gate, dict) and str(entry_gate.get("status") or "").strip() == "passed":
+        return "accepted_intake_initialized"
+    board_path = run_root / "notes" / "hypothesis_board.yaml"
+    board_data = _read_yaml(board_path) if board_path.is_file() else {}
+    board_root = board_data.get("hypothesis_board") if isinstance(board_data, dict) else {}
+    phase = str((board_root or {}).get("current_phase") or "").strip().lower()
+    return WORKFLOW_PHASE_TO_STAGE.get(phase, "preflight_pending")
+
+
+def _remote_gate_projection(
+    *,
+    run_root: Path,
+    entry_data: dict[str, Any],
+    backend: str,
+    contexts: list[str],
+) -> tuple[dict[str, Any], dict[str, Any], list[str], dict[str, str]]:
+    if backend != "remote":
+        return (
+            {
+                "prerequisite": {
+                    "status": "passed" if str(entry_data.get("status") or "").strip() == "passed" else "blocked",
+                    "blocking_codes": [] if str(entry_data.get("status") or "").strip() == "passed" else ["BLOCKED_REMOTE_PREREQUISITE"],
+                },
+                "capability": {"status": "not_applicable"},
+                "reconnect_required": {"status": "not_applicable", "blocking_codes": []},
+                "fix_verification_blocked_by_capability": {"status": "not_applicable", "blocking_codes": []},
+            },
+            {},
+            [],
+            {},
+        )
+    prerequisite_passed = str(entry_data.get("status") or "").strip() == "passed" and bool(
+        str(((entry_data.get("request") or {}).get("remote_transport")) or "").strip()
+    )
+    prerequisite = {
+        "status": "passed" if prerequisite_passed else "blocked",
+        "blocking_codes": [] if prerequisite_passed else ["BLOCKED_REMOTE_PREREQUISITE"],
+    }
+    capability_path = run_root / "artifacts" / "remote_capability_gate.yaml"
+    capability_data = _read_yaml(capability_path) if capability_path.is_file() else {}
+    capability_status = str((capability_data or {}).get("status") or ("pending" if prerequisite_passed else "blocked")).strip()
+    blocked_capability_codes = [
+        str(item).strip()
+        for item in ((capability_data or {}).get("blocked_capability_codes") or [])
+        if str(item).strip()
+    ]
+    capability = {
+        "status": capability_status or "pending",
+        "blocking_codes": blocked_capability_codes,
+    }
+    recovery_path = run_root / "artifacts" / "remote_recovery_decision.yaml"
+    recovery_data = _read_yaml(recovery_path) if recovery_path.is_file() else {}
+    recovery_codes = [
+        str(item).strip()
+        for item in ((recovery_data or {}).get("blocking_codes") or [])
+        if str(item).strip()
+    ]
+    reconnect_required = bool((recovery_data or {}).get("reconnect_required"))
+    reconnect_status = str((recovery_data or {}).get("status") or "").strip()
+    if not prerequisite_passed:
+        reconnect_gate = {"status": "not_applicable", "blocking_codes": []}
+    elif reconnect_status in {"passed", "blocked", "pending", "not_applicable"}:
+        reconnect_gate = {"status": reconnect_status, "blocking_codes": recovery_codes}
+    elif reconnect_required or recovery_codes:
+        reconnect_gate = {
+            "status": "blocked",
+            "blocking_codes": recovery_codes or ["BLOCKED_REMOTE_SESSION_REOPEN_REQUIRED"],
+        }
+    elif recovery_path.is_file():
+        reconnect_gate = {"status": "passed", "blocking_codes": []}
+    else:
+        reconnect_gate = {"status": "pending", "blocking_codes": []}
+    fix_verification_path = run_root / "artifacts" / "fix_verification.yaml"
+    fix_verification_data = _read_yaml(fix_verification_path) if fix_verification_path.is_file() else {}
+    fix_blocked = bool((fix_verification_data or {}).get("blocked_by_capability"))
+    fix_codes = [
+        str(item).strip()
+        for item in ((fix_verification_data or {}).get("blocked_capability_codes") or [])
+        if str(item).strip()
+    ]
+    if not prerequisite_passed:
+        fix_gate = {"status": "not_applicable", "blocking_codes": []}
+    elif fix_blocked:
+        fix_gate = {"status": "blocked", "blocking_codes": fix_codes}
+    elif capability.get("status") == "blocked" and blocked_capability_codes:
+        fix_gate = {"status": "blocked", "blocking_codes": blocked_capability_codes}
+    elif fix_verification_path.is_file():
+        fix_gate = {"status": "passed", "blocking_codes": []}
+    else:
+        fix_gate = {"status": "pending", "blocking_codes": []}
+    combined_blocked_codes = sorted(set(blocked_capability_codes) | set(fix_codes))
+    matrix = dict((capability_data or {}).get("remote_capability_matrix") or {})
+    path_map = {
+        "remote_capability_gate": _norm(capability_path),
+        "remote_prerequisite_gate": _norm(run_root / "artifacts" / "remote_prerequisite_gate.yaml"),
+        "remote_recovery_decision": _norm(run_root / "artifacts" / "remote_recovery_decision.yaml"),
+        "remote_planning_brief": _norm(run_root / "notes" / "remote_planning_brief.yaml"),
+        "remote_runtime_inconsistency": _norm(run_root / "notes" / "remote_runtime_inconsistency.yaml"),
+    }
+    return (
+        {
+            "prerequisite": prerequisite,
+            "capability": capability,
+            "reconnect_required": reconnect_gate,
+            "fix_verification_blocked_by_capability": fix_gate,
+        },
+        matrix,
+        combined_blocked_codes,
+        path_map,
+    )
 
 
 def _read_capture_ref_paths(case_root: Path, run_root: Path) -> dict[str, str]:
@@ -348,10 +497,30 @@ def build_runtime_topology_payload(root: Path, run_root: Path, platform: str | N
     contexts = [str(item.get("context_id") or "").strip() for item in context_bindings if str(item.get("context_id") or "").strip()]
     owners = sorted({str(item.get("owner_agent") or "").strip() for item in context_bindings if str(item.get("owner_agent") or "").strip()})
     baton_refs = sorted({ref for item in context_bindings for ref in (item.get("baton_refs") or []) if str(ref).strip()})
+    workflow_stage = _workflow_stage(run_root, run_data)
+    remote_gate_status, remote_capability_matrix, blocked_capability_codes, remote_paths = _remote_gate_projection(
+        run_root=run_root,
+        entry_data=entry_data,
+        backend=backend,
+        contexts=contexts,
+    )
+    remote_context_locality = "strict"
+    remote_handle_origin_context = contexts[0] if contexts else ""
+    remote_handle_reuse_policy = "must_reconnect"
+    recovery_policy = (
+        {
+            "reanchor_blocker": "BLOCKED_REMOTE_REANCHOR",
+            "session_reopen_blocker": "BLOCKED_REMOTE_SESSION_REOPEN_REQUIRED",
+            "capability_recheck_blocker": "BLOCKED_REMOTE_CAPABILITY_RECHECK_REQUIRED",
+        }
+        if backend == "remote"
+        else {}
+    )
     checks = [
         {"id": "entry_mode", "result": "pass" if entry_mode in {"cli", "mcp"} else "fail", "detail": "entry_mode must be cli or mcp"},
         {"id": "backend", "result": "pass" if backend in {"local", "remote"} else "fail", "detail": "backend must be local or remote"},
         {"id": "coordination_mode", "result": "pass" if bool(coordination_mode) else "fail", "detail": "coordination_mode must be recorded in run.yaml"},
+        {"id": "workflow_stage", "result": "pass" if bool(workflow_stage) else "fail", "detail": "workflow_stage must be derivable for the current run"},
         {"id": "platform_contract", "result": "pass" if bool(platform_row) else "fail", "detail": "platform_capabilities.json must define the platform agentic profile"},
         {
             "id": "delegation_contract_surface",
@@ -377,6 +546,11 @@ def build_runtime_topology_payload(root: Path, run_root: Path, platform: str | N
             "detail": "runtime topology must normalize orchestration mode and direct-runtime fallback semantics",
             "refs": degradation_issues[:8] or None,
         },
+        {
+            "id": "remote_handle_locality",
+            "result": "pass" if backend != "remote" or remote_context_locality == "strict" else "fail",
+            "detail": "remote runs must declare strict context-local remote handle semantics",
+        },
     ]
     status = "passed" if all(item["result"] == "pass" for item in checks) else "failed"
     return {
@@ -388,6 +562,7 @@ def build_runtime_topology_payload(root: Path, run_root: Path, platform: str | N
         "run_id": str(run_data.get("run_id") or "").strip(),
         "session_id": session_id,
         "coordination_mode": coordination_mode,
+        "workflow_stage": workflow_stage,
         "orchestration_mode": orchestration_mode,
         "single_agent_reason": single_agent_reason,
         "sub_agent_mode": sub_agent_mode,
@@ -404,6 +579,13 @@ def build_runtime_topology_payload(root: Path, run_root: Path, platform: str | N
         "delegation_status": delegation_status,
         "fallback_execution_mode": fallback_execution_mode,
         "degraded_reasons": degraded_reasons,
+        "remote_context_locality": remote_context_locality,
+        "remote_handle_origin_context": remote_handle_origin_context,
+        "remote_handle_reuse_policy": remote_handle_reuse_policy,
+        "remote_gate_status": remote_gate_status,
+        "remote_capability_matrix": remote_capability_matrix,
+        "blocked_capability_codes": blocked_capability_codes,
+        "recovery_policy": recovery_policy,
         "contexts": contexts,
         "context_bindings": context_bindings,
         "owners": owners,
@@ -415,6 +597,7 @@ def build_runtime_topology_payload(root: Path, run_root: Path, platform: str | N
             "platform_capabilities": _norm(platform_caps_path),
             "runtime_mode_truth": _norm(runtime_truth_path),
             "run_root": _norm(run_root),
+            **remote_paths,
         },
     }
 

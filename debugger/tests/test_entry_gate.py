@@ -51,6 +51,7 @@ class EntryGateTests(unittest.TestCase):
             remote_transport="",
         )
         self.assertEqual(payload["status"], "blocked")
+        self.assertEqual(payload["workflow_stage"], "preflight_pending")
         blocker_codes = {item["code"] for item in payload["blockers"]}
         self.assertIn("BLOCKED_MISSING_CAPTURE", blocker_codes)
         self.assertTrue((case_root / "artifacts" / "entry_gate.yaml").is_file())
@@ -121,6 +122,7 @@ class EntryGateTests(unittest.TestCase):
         self.assertEqual(payload["status"], "blocked")
         blocker_codes = {item["code"] for item in payload["blockers"]}
         self.assertIn("BLOCKED_REMOTE_PREREQUISITE", blocker_codes)
+        self.assertEqual(payload["remote_prerequisite_gate"]["status"], "blocked")
 
     def test_entry_gate_passes_with_local_cli_capture(self) -> None:
         module = _load_module(ENTRY_GATE_SCRIPT, "entry_gate_module_pass")
@@ -140,6 +142,7 @@ class EntryGateTests(unittest.TestCase):
             remote_transport="",
         )
         self.assertEqual(payload["status"], "passed")
+        self.assertEqual(payload["workflow_stage"], "entry_gate_passed")
         self.assertEqual(payload["platform_contract"]["sub_agent_mode"], "team_agents")
         self.assertEqual(payload["runtime_mode_truth"]["runtime_parallelism_ceiling"], "multi_context_multi_owner")
 

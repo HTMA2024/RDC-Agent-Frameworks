@@ -64,6 +64,14 @@ CAPTURE_FILE_RE = re.compile(r"\bcapture_file_id\s*[:=]\s*([A-Za-z0-9._-]+)")
 EVENT_RE = re.compile(r"\bevent[_\s:=#-]*(\d+)\b", re.IGNORECASE)
 FINAL_VERDICT_RE = re.compile(r"DEBUGGER_FINAL_VERDICT|final verdict|最终裁决|结案", re.IGNORECASE)
 FIX_VERIFICATION_SCHEMA = Path(__file__).resolve().parents[1] / "schemas" / "fix_verification_schema.yaml"
+ALLOWED_FIX_VERDICTS = {
+    "root_cause_localized_fix_unverified",
+    "root_cause_probable_fix_unverified",
+    "root_cause_validated_fix_verified",
+    "root_cause_localized_remote_fix_path_blocked",
+    "root_cause_localized_remote_runtime_inconsistent",
+    "verification_blocked_remote_backend_capability",
+}
 
 
 def _debugger_root(default: Path | None = None) -> Path:
@@ -535,12 +543,17 @@ def _fix_verification_issues(data: Any) -> list[str]:
             issues.append(f"fix_verification.{field} must be an object")
             continue
         for sub in item.get("required_subfields", []) or []:
-            if not isinstance(value, dict) or value.get(sub) in (None, "", [], {}):
+            if not isinstance(value, dict) or sub not in value:
+                issues.append(f"fix_verification.{field}.{sub} must be present")
+                continue
+            subvalue = value.get(sub)
+            if subvalue is None or (isinstance(subvalue, str) and not subvalue.strip()):
                 issues.append(f"fix_verification.{field}.{sub} must be present")
 
     structural = data.get("structural_verification") if isinstance(data.get("structural_verification"), dict) else {}
     semantic = data.get("semantic_verification") if isinstance(data.get("semantic_verification"), dict) else {}
     overall = data.get("overall_result") if isinstance(data.get("overall_result"), dict) else {}
+    verdict = str(data.get("verdict", "")).strip()
 
     if structural.get("status") not in {"passed", "failed"}:
         issues.append("fix_verification.structural_verification.status must be passed or failed")
@@ -548,12 +561,41 @@ def _fix_verification_issues(data: Any) -> list[str]:
         issues.append("fix_verification.semantic_verification.status must be passed, failed, or fallback_only")
     if overall.get("status") not in {"passed", "failed"}:
         issues.append("fix_verification.overall_result.status must be passed or failed")
+    if not verdict:
+        issues.append("fix_verification.verdict must be non-empty")
+    elif verdict not in ALLOWED_FIX_VERDICTS:
+        issues.append("fix_verification.verdict must be one of " + ", ".join(sorted(ALLOWED_FIX_VERDICTS)))
+    if not _nonempty_str(data.get("verification_mode")):
+        issues.append("fix_verification.verification_mode must be non-empty")
+    if not _nonempty_str(data.get("verification_confidence")):
+        issues.append("fix_verification.verification_confidence must be non-empty")
+    for field in (
+        "blocked_by_capability",
+        "candidate_fix_prepared",
+        "candidate_fix_live_applied",
+        "candidate_fix_structurally_validated",
+        "candidate_fix_semantically_validated",
+    ):
+        if not isinstance(data.get(field), bool):
+            issues.append(f"fix_verification.{field} must be boolean")
+    if not isinstance(data.get("blocked_capability_codes"), list):
+        issues.append("fix_verification.blocked_capability_codes must be a list")
+    if not isinstance(structural.get("blocked_by_capability"), bool):
+        issues.append("fix_verification.structural_verification.blocked_by_capability must be boolean")
+    if not isinstance(structural.get("blocked_capability_codes"), list):
+        issues.append("fix_verification.structural_verification.blocked_capability_codes must be a list")
+    if not isinstance(semantic.get("fallback_only"), bool):
+        issues.append("fix_verification.semantic_verification.fallback_only must be boolean")
 
     if overall.get("status") == "passed":
         if structural.get("status") != "passed":
             issues.append("overall_result.status=passed requires structural_verification.status=passed")
         if semantic.get("status") != "passed":
             issues.append("overall_result.status=passed requires semantic_verification.status=passed")
+        if bool(data.get("blocked_by_capability")):
+            issues.append("overall_result.status=passed requires blocked_by_capability=false")
+        if not bool(data.get("candidate_fix_live_applied")):
+            issues.append("overall_result.status=passed requires candidate_fix_live_applied=true")
 
     if not isinstance(structural.get("probe_results"), list) or not structural.get("probe_results"):
         issues.append("fix_verification.structural_verification.probe_results must be a non-empty list")
@@ -561,6 +603,24 @@ def _fix_verification_issues(data: Any) -> list[str]:
         issues.append("fix_verification.semantic_verification.probe_summary must be a non-empty list")
     if not isinstance(structural.get("anomaly_cleared"), bool):
         issues.append("fix_verification.structural_verification.anomaly_cleared must be boolean")
+    if semantic.get("status") == "fallback_only" and overall.get("status") != "failed":
+        issues.append("semantic_verification.status=fallback_only requires overall_result.status=failed")
+    if bool(data.get("blocked_by_capability")) and overall.get("status") != "failed":
+        issues.append("blocked_by_capability=true requires overall_result.status=failed")
+    if overall and str(overall.get("verdict") or "").strip() != verdict:
+        issues.append("fix_verification.overall_result.verdict must match fix_verification.verdict")
+    if bool(data.get("blocked_by_capability")) and not list(data.get("blocked_capability_codes") or []):
+        issues.append("blocked_by_capability=true requires blocked_capability_codes to be non-empty")
+    if not bool(data.get("blocked_by_capability")) and verdict == "verification_blocked_remote_backend_capability":
+        issues.append("verification_blocked_remote_backend_capability requires blocked_by_capability=true")
+    if verdict == "root_cause_validated_fix_verified" and overall.get("status") != "passed":
+        issues.append("root_cause_validated_fix_verified requires overall_result.status=passed")
+    if verdict in {
+        "root_cause_localized_remote_fix_path_blocked",
+        "root_cause_localized_remote_runtime_inconsistent",
+        "verification_blocked_remote_backend_capability",
+    } and overall.get("status") != "failed":
+        issues.append(f"{verdict} requires overall_result.status=failed")
     return issues
 
 
@@ -596,6 +656,32 @@ def _intent_gate_acceptance_issues(board_data: Any) -> list[str]:
     if str(redirect_target or "").strip():
         issues.append("hypothesis_board.intent_gate.redirect_target must be empty for accepted debugger runs")
 
+    return issues
+
+
+def _workflow_stage_overreach_issues(events: list[dict[str, Any]], *, coordination_mode: str) -> list[str]:
+    if coordination_mode != "staged_handoff":
+        return []
+    issues: list[str] = []
+    waiting_for_specialist_brief = False
+    for event in events:
+        event_type = str(event.get("event_type") or "").strip()
+        if event_type == "workflow_stage_transition":
+            stage = _event_payload_str(event, "workflow_stage")
+            status = str(event.get("status") or "").strip()
+            if stage == "waiting_for_specialist_brief" and status in {"entered", "blocked"}:
+                waiting_for_specialist_brief = True
+            elif stage and status == "entered" and stage != "waiting_for_specialist_brief":
+                waiting_for_specialist_brief = False
+            continue
+        if not waiting_for_specialist_brief:
+            continue
+        if event_type == "tool_execution" and str(event.get("agent_id") or "").strip() == "rdc-debugger":
+            event_id = str(event.get("event_id") or "").strip() or "?"
+            tool_name = _event_payload_str(event, "tool_name") or "unknown_tool"
+            issues.append(
+                f"[event {event_id}] rdc-debugger must not execute live tool {tool_name} during waiting_for_specialist_brief",
+            )
     return issues
 
 
@@ -1312,6 +1398,8 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
     else:
         if str(intake_gate_data.get("status", "")).strip() != "passed":
             intake_gate_artifact_issues.append("intake_gate.status must be passed")
+        if str(intake_gate_data.get("workflow_stage", "")).strip() != "intake_gate_passed":
+            intake_gate_artifact_issues.append("intake_gate.workflow_stage must be intake_gate_passed")
         if str(intake_gate_data.get("run_root", "")).strip() and str(intake_gate_data.get("run_root", "")).strip() != _norm(run_root):
             intake_gate_artifact_issues.append("intake_gate.run_root must match the audited run_root")
     if str(computed_intake_gate.get("status", "")).strip() != "passed":
@@ -1336,6 +1424,7 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
         if str(runtime_topology_data.get("backend", "")).strip() != str(computed_runtime_topology.get("backend", "")).strip():
             runtime_topology_issues.append("runtime_topology.backend must match the recomputed topology")
         for field in (
+            "workflow_stage",
             "orchestration_mode",
             "single_agent_reason",
             "sub_agent_mode",
@@ -1349,6 +1438,9 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
             "applied_live_runtime_policy",
             "delegation_status",
             "fallback_execution_mode",
+            "remote_context_locality",
+            "remote_handle_origin_context",
+            "remote_handle_reuse_policy",
         ):
             if str(runtime_topology_data.get(field, "")).strip() != str(computed_runtime_topology.get(field, "")).strip():
                 runtime_topology_issues.append(f"runtime_topology.{field} must match the recomputed topology")
@@ -1362,6 +1454,26 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
             runtime_topology_issues.append("runtime_topology.context_bindings must not be empty")
         elif json.dumps(actual_bindings, ensure_ascii=False, sort_keys=True) != json.dumps(expected_bindings, ensure_ascii=False, sort_keys=True):
             runtime_topology_issues.append("runtime_topology.context_bindings must match the recomputed topology")
+        actual_remote_gate = dict(runtime_topology_data.get("remote_gate_status") or {})
+        expected_remote_gate = dict(computed_runtime_topology.get("remote_gate_status") or {})
+        if json.dumps(actual_remote_gate, ensure_ascii=False, sort_keys=True) != json.dumps(expected_remote_gate, ensure_ascii=False, sort_keys=True):
+            runtime_topology_issues.append("runtime_topology.remote_gate_status must match the recomputed topology")
+        actual_remote_capability_matrix = dict(runtime_topology_data.get("remote_capability_matrix") or {})
+        expected_remote_capability_matrix = dict(computed_runtime_topology.get("remote_capability_matrix") or {})
+        if json.dumps(actual_remote_capability_matrix, ensure_ascii=False, sort_keys=True) != json.dumps(expected_remote_capability_matrix, ensure_ascii=False, sort_keys=True):
+            runtime_topology_issues.append("runtime_topology.remote_capability_matrix must match the recomputed topology")
+        actual_blocked_capability_codes = sorted(
+            str(item).strip() for item in (runtime_topology_data.get("blocked_capability_codes") or []) if str(item).strip()
+        )
+        expected_blocked_capability_codes = sorted(
+            str(item).strip() for item in (computed_runtime_topology.get("blocked_capability_codes") or []) if str(item).strip()
+        )
+        if actual_blocked_capability_codes != expected_blocked_capability_codes:
+            runtime_topology_issues.append("runtime_topology.blocked_capability_codes must match the recomputed topology")
+        actual_recovery_policy = dict(runtime_topology_data.get("recovery_policy") or {})
+        expected_recovery_policy = dict(computed_runtime_topology.get("recovery_policy") or {})
+        if json.dumps(actual_recovery_policy, ensure_ascii=False, sort_keys=True) != json.dumps(expected_recovery_policy, ensure_ascii=False, sort_keys=True):
+            runtime_topology_issues.append("runtime_topology.recovery_policy must match the recomputed topology")
     if str(computed_runtime_topology.get("status", "")).strip() != "passed":
         runtime_topology_issues.append("recomputed runtime_topology fails for the audited run state")
     _check(
@@ -1372,6 +1484,27 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
         path=runtime_topology if runtime_topology.is_file() else None,
         refs=runtime_topology_issues[:8] or None,
     )
+    audited_backend = str(
+        (runtime_topology_data or {}).get("backend")
+        or (computed_runtime_topology or {}).get("backend")
+        or entry_gate_data.get("backend")
+        or "local"
+    ).strip()
+    remote_artifact_checks = {
+        "remote_prerequisite_gate_artifact": run_root / "artifacts" / "remote_prerequisite_gate.yaml",
+        "remote_capability_gate_artifact": run_root / "artifacts" / "remote_capability_gate.yaml",
+        "remote_recovery_decision_artifact": run_root / "artifacts" / "remote_recovery_decision.yaml",
+        "remote_planning_brief_artifact": run_root / "notes" / "remote_planning_brief.yaml",
+        "remote_runtime_inconsistency_artifact": run_root / "notes" / "remote_runtime_inconsistency.yaml",
+    }
+    for check_id, path in remote_artifact_checks.items():
+        _check(
+            checks,
+            check_id,
+            audited_backend != "remote" or path.is_file(),
+            f"{path.name} must exist for remote finalization",
+            path=path,
+        )
     board_root = hypothesis_board_data.get("hypothesis_board") if isinstance(hypothesis_board_data, dict) else {}
     blocking_issue_refs = []
     if isinstance(board_root, dict):
@@ -1443,6 +1576,10 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
     degraded_reasons.update(normalized_degraded_reasons)
     runtime_baton_issues = _runtime_baton_issues(events, run_root)
     specialist_handoff_issues = _dispatched_specialist_handoff_issues(events, run_root)
+    process_deviation_events = [
+        event for event in events if str(event.get("event_type", "")).strip() == "process_deviation"
+    ]
+    workflow_stage_overreach_issues = _workflow_stage_overreach_issues(events, coordination_mode=expected_coordination)
     skeptic_ok = any(str(e.get("agent_id", "")).strip() == "skeptic_agent" and str(e.get("event_type", "")).strip() in {"conflict_resolved", "counterfactual_reviewed", "quality_check"} for e in events)
     native_curator_ok = any(
         str(e.get("agent_id", "")).strip() == "curator_agent"
@@ -1528,6 +1665,14 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
     )
     _check(
         checks,
+        "workflow_stage_overreach",
+        not workflow_stage_overreach_issues,
+        "rdc-debugger must not execute live tool work while waiting_for_specialist_brief in staged_handoff runs",
+        path=action_chain if action_chain.is_file() else None,
+        refs=workflow_stage_overreach_issues[:8] or None,
+    )
+    _check(
+        checks,
         "action_chain_skeptic",
         skeptic_ok if orchestration_mode != "single_agent_by_user" else True,
         "multi_agent runs must contain skeptic review activity",
@@ -1539,6 +1684,40 @@ def run_audit(root: Path, run_root: Path, platform: str) -> dict[str, Any]:
         curator_ok,
         "multi_agent runs require curator_agent report artifact_write; single_agent_by_user runs require rdc-debugger report artifact_write",
         path=action_chain if action_chain.is_file() else None,
+    )
+    skeptic_index = next(
+        (
+            idx
+            for idx, event in enumerate(events)
+            if str(event.get("agent_id", "")).strip() == "skeptic_agent"
+            and str(event.get("event_type", "")).strip() in {"conflict_resolved", "counterfactual_reviewed", "quality_check"}
+        ),
+        -1,
+    )
+    curator_index = next(
+        (
+            idx
+            for idx, event in enumerate(events)
+            if str(event.get("agent_id", "")).strip() == ("rdc-debugger" if orchestration_mode == "single_agent_by_user" else "curator_agent")
+            and str(event.get("event_type", "")).strip() == "artifact_write"
+            and _path_ref_matches(_event_path(event), report_md)
+        ),
+        -1,
+    )
+    _check(
+        checks,
+        "skeptic_before_curator",
+        curator_index < 0 or skeptic_index < 0 or skeptic_index < curator_index or orchestration_mode == "single_agent_by_user",
+        "skeptic review must occur before curator final report artifact_write in multi_agent runs",
+        path=action_chain if action_chain.is_file() else None,
+    )
+    _check(
+        checks,
+        "process_deviation_clear",
+        not process_deviation_events,
+        "finalization requires no unresolved process_deviation events in action_chain",
+        path=action_chain if action_chain.is_file() else None,
+        refs=[str(_event_payload(event).get("deviation_code") or "") for event in process_deviation_events][:8] or None,
     )
 
     report_text = "\n".join(_text(path) for path in (report_md, visual_report) if path.is_file())

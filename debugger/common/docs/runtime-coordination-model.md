@@ -1,151 +1,168 @@
-# RenderDoc/RDC Debugger Runtime Coordination Model（运行时协作模型）
+# RenderDoc/RDC Debugger Runtime Coordination Model
 
-本文只定义 debugger framework 如何消费 Tools 的 runtime ceiling，并把它落成可执行、可审计的协作合同。
+本文定义 framework 如何消费 Tools 的 runtime truth，并把它落成可执行、可审计、可终局检查的协作协议。
 
-## 1. 先区分四层概念
+## 1. 四层概念
 
 - `entry_mode`
-  - `CLI` 或 `MCP`
+  - `cli` 或 `mcp`
 - `backend`
   - `local` 或 `remote`
 - `coordination_mode`
   - `concurrent_team`、`staged_handoff`、`workflow_stage`
 - `orchestration_mode`
-  - `multi_agent`、`single_agent_by_user`
+  - `multi_agent` 或 `single_agent_by_user`
 
-它们不是同一维度。
+它们不是同一维度，不允许互相代替。
 
-## 2. Context 与 live runtime 的硬约束
+## 2. Workflow State Machine
 
-- `context` 是 live runtime 隔离单元，不是“多个 agent 共享的黑板”。
-- 同一 `context` 任一时刻只允许维护一条当前 live 调试链。
+主流程固定为：
+
+1. `preflight_pending`
+2. `intent_gate_passed`
+3. `entry_gate_passed`
+4. `accepted_intake_initialized`
+5. `intake_gate_passed`
+6. `waiting_for_specialist_brief`
+7. `specialist_briefs_collected`
+8. `expert_investigation_complete`
+9. `fix_verification_complete`
+10. `skeptic_ready`
+11. `curator_ready`
+12. `finalized`
+
+硬规则：
+
+- 阶段只能前进，不能跳级 finalize。
+- 每次阶段切换都必须在 `action_chain.jsonl` 中记录 `workflow_stage_transition`。
+- `fix_verification_complete` 之前不得进入 skeptic。
+- 没有 skeptic 严格 signoff 不得进入 curator。
+- 没有 curator 的最终写入，不得视为 `finalized`。
+
+## 3. Remote Gate Model
+
+remote 子状态与 gate 固定为：
+
+- `remote_prerequisite_gate`
+- `remote_capability_gate`
+- `remote_reconnect_required`
+- `remote_fix_verification_blocked_by_capability`
+
+硬规则：
+
+- remote blocker 必须在 patch/debug 前落盘。
+- remote truthful-fail verdict 必须基于 Tools 的 `remote_capability_matrix`，不能靠框架猜测。
+- `runtime_mode_truth.snapshot.json` 只表达 runtime ceiling；remote 细粒度能力必须来自 `rd.session.get_context` 或 `rd.core.get_capabilities`。
+
+## 4. Context And Ownership
+
+- `context` 是 live runtime 隔离单元，不是多 agent 共享黑箱。
 - 并行 case 也必须拆成独立 `context/daemon`。
-- 并行 case 只能共享仓库，不得共享同一条 live `context`。
-- 一个 `context` 可以保留多条 session 记录，但这不等于允许多个 specialist 共享同一条 live runtime。
+- `remote_context_locality=strict` 与 `remote_handle_reuse_policy=must_reconnect` 是硬约束。
+- remote live runtime 一律是 `single_runtime_owner`。
+- local 可按平台矩阵消费成：
+  - `multi_context_multi_owner`
+  - `multi_context_orchestrated`
+  - `single_runtime_owner`
 
-## 3. 三种 coordination mode
+框架只允许如下映射：
 
-### `workflow_stage`
+- `local + concurrent_team` -> 可消费 `multi_context_multi_owner`
+- `local + staged_handoff` -> 可消费 `multi_context_orchestrated`
+- `remote + any coordination_mode` -> 固定 `single_runtime_owner`
+- `workflow_stage` -> 固定串行 specialist 形态，不模拟 team-agent live mesh
 
-- 阶段化串行推进。
-- specialist 可被主 agent 串行实例化，但不形成稳定 specialist 网络。
-- 不模拟实时 team-agent handoff。
-
-### `staged_handoff`
-
-- 不是单 agent 串行切换。
-- 它是主 agent 作为通信与裁决中枢的多 specialist 多轮接力。
-- specialist 先提交 brief、evidence request、下一轮 probe 目标。
-- 主 agent 负责重组证据、解决冲突、决定 redispatch。
-- specialist 之间不直连，所有依赖都经主 agent 中转。
-- local 下允许 `multi_context_orchestrated`：多个 specialist 可各持独立 context，但不能绕过主 agent 做 peer coordination。
-
-### `concurrent_team`
-
-- specialist 可以直接通信。
-- 只有 team-agents 宿主才允许进入这一档。
-- local 下可以利用 `multi_context_multi_owner`。
-
-## 4. Local / Remote live policy
-
-权威规则：
+权威短语：
 
 - `remote_coordination_mode = single_runtime_owner`
-- `remote` 一律只允许一个 live runtime owner
-- `workflow_stage` 一律采用 `single_runtime_owner`
-- `staged_handoff remote` 一律采用 `single_runtime_owner`
-- `staged_handoff local` 采用 `multi_context_orchestrated`
-- 只有 `local + concurrent_team` 才允许 `multi_context_multi_owner`
-
-换句话说：
-
 - `single_runtime_owner != single_agent_flow`
-- `remote` 可以支持 multi-agent coordination，但不允许 multi-owner live runtime
-- `staged_handoff` 仍然允许多 specialist、多轮 handoff、多轮裁决
-- 它只是把 peer coordination 收敛到主 agent，把 remote live ownership 收敛到单 owner
 
-## 5. Orchestration Mode
+## 5. Staged Handoff Contract
+
+`staged_handoff` 不是单 agent 串行切换，而是主 agent 作为通信与裁决中枢的多 specialist 多轮接力。
+
+主 agent 在 `waiting_for_specialist_brief` 期间只允许：
+
+- 读取 specialist brief
+- 更新 `notes/hypothesis_board.yaml`
+- 记录 blocker
+- 做 timeout / redispatch 决策
+
+主 agent 在该阶段禁止：
+
+- 自己继续 live 探索
+- 代替 specialist 补调查
+- 抢写 specialist notes
+- 抢跑 patch/debug
+
+若违反，必须在 `action_chain.jsonl` 记为：
+
+- `process_deviation`
+- `blocking_code: PROCESS_DEVIATION_MAIN_AGENT_OVERREACH`
+
+## 6. Orchestration Modes
 
 ### `multi_agent`
 
-- 这是默认模式。
-- 所有平台默认都应通过 specialist dispatch 进入调查、验证、审查与报告链。
-- `rdc-debugger` 负责 orchestration，不直接以 orchestrator 身份执行 investigator live `rd.*`。
+- 默认模式
+- 必须走 specialist dispatch
+- `rdc-debugger` 负责 orchestration、gate、阶段推进和最终裁决前置条件
 
 ### `single_agent_by_user`
 
-- 只有用户显式要求不要 multi-agent context 时才允许进入。
-- 这不是 degraded path。
-- 必须显式落盘到 `entry_gate.yaml` 与 `runtime_topology.yaml`：
+- 只有用户显式要求不要 multi-agent context 时才允许进入
+- 这不是 degraded path
+- 必须同时落盘到：
+  - `entry_gate.yaml`
+  - `runtime_topology.yaml`
+- 必须显式记录：
   - `orchestration_mode: single_agent_by_user`
   - `single_agent_reason: user_requested`
-- `runtime_topology.yaml` 还必须同步记录：
   - `delegation_status: single_agent_by_user`
-  - `fallback_execution_mode: wrapper | local_renderdoc_python`
-  - `degraded_reasons` 只用于 direct-runtime wrapper fallback，不再用于 surrogate specialist / curator
-- 进入该模式后，主 agent 必须先向用户说明不会分派 specialist。
+- specialist 长时间无回报时必须进入 `BLOCKED_SPECIALIST_FEEDBACK_TIMEOUT` 或等价阻断状态，而不是让 orchestrator 抢做 specialist live investigation
 
-## 6. Delegation Patience / Progress Contract
+## 7. Runtime Baton Contract
 
-- specialist dispatch 后必须有结构化阶段回报，不能无限黑盒。
-- `rdc-debugger` 必须持续把这些回报汇总到用户可观察状态源，例如 `hypothesis_board.yaml`。
-- dispatch 成功后，主 agent 必须先把当前状态切到“等待 specialist 首次 brief”，不得因短时 silence 自行抢活。
-
-统一最小 progress brief 字段：
-
-- `active_owner`
-- `current_task`
-- `working_hypothesis`
-- `evidence_collected`
-- `blocking_issues`
-- `next_actions`
-- `status`
-
-统一阶段状态：
-
-- `accepted`
-- `current_task`
-- `blocking_issues`
-- `completed_handoff`
-
-统一等待预算：
-
-- 首次 brief：60 秒内应有阶段确认
-- 持续执行中：超过 5 分钟无阶段更新，进入 `BLOCKED_SPECIALIST_FEEDBACK_TIMEOUT` 或等价阻断状态
-
-统一 reclaim 规则：
-
-- 短时 silence 不等于 dispatch 失败
-- specialist feedback timeout 只允许导致 block / 重新确认 / redispatch
-- 不允许因为 impatience 自动退回到 orchestrator 自执行
-
-## 7. Runtime Baton 合同
-
-跨 agent、跨轮次、跨重连传递 live 调查上下文时：
+跨 agent、跨轮次、跨重连传递 live 调试上下文时：
 
 - 必须使用 `runtime_baton`
 - `rd.session.resume` / `rd.session.rehydrate_runtime_baton` 必须声明 `baton_ref`
-- 对 `multi_context_orchestrated`，跨 context 的 live 续接、焦点转交或 owner 变更都必须有 baton
-- baton 只承载 live 恢复所需事实，不改变 remote 单 owner 规则
+- 对 `multi_context_orchestrated`，跨 context live handoff 必须有 baton
+- baton 只承载恢复事实，不改变 remote 单 owner 规则
 
-## 8. Framework 对 Tools runtime ceiling 的消费方式
+## 8. Required Audit Surface
 
-Tools 只定义：
+以下对象共同组成 runtime coordination audit surface：
 
-- local runtime ceiling 可到 `multi_context_multi_owner`
-- remote runtime ceiling 固定为 `single_runtime_owner`
+- `entry_gate.yaml`
+- `intake_gate.yaml`
+- `runtime_topology.yaml`
+- `fix_verification.yaml`
+- `action_chain.jsonl`
+- `session_evidence.yaml`
+- `skeptic_signoff.yaml`
+- `run_compliance.yaml`
 
-Frameworks 负责再根据平台能力裁决最终政策：
+remote run 额外要求：
 
-- `team_agents + concurrent_team + local`
-  - 才能把 ceiling 用成 `multi_context_multi_owner`
-- `puppet_sub_agents + staged_handoff + local`
-  - 收敛成 `multi_context_orchestrated`
-- `instruction_only_sub_agents + workflow_stage`
-  - 形成串行 specialist 流，而不是无 specialist
+- `remote_prerequisite_gate.yaml`
+- `remote_capability_gate.yaml`
+- `remote_recovery_decision.yaml`
+- `notes/remote_planning_brief.yaml`
+- `notes/remote_runtime_inconsistency.yaml`
 
-## 9. Finalization
+## 9. Role Whitelist Summary
 
-- `curator_agent` 在 `multi_agent` 下仍然是 finalization-required。
-- `single_agent_by_user` 下，主 agent 负责最终报告输出，但必须在 action chain 与 runtime topology 中显式体现该模式。
-- 不存在“宿主不允许起 curator，于是 surrogate curator 代写”的 shared contract。
+- `rdc-debugger`
+  - 允许：intent gate、entry/intake gate、dispatch、workflow stage transition、timeout/redispatch、final gate
+  - 禁止：在 `waiting_for_specialist_brief` 期间做 specialist live investigation
+- specialists
+  - 允许：按各自 write scope 做调查、brief、证据落盘
+  - 禁止：重判 intent gate、修改平台策略、直接 finalization
+- `skeptic_agent`
+  - 允许：读取 `fix_verification` 与 session truth，输出 signoff/challenge
+  - 禁止：补调查、改报告、改 knowledge object
+- `curator_agent`
+  - 允许：在 skeptic strict signoff 后生成 final artifacts
+  - 禁止：替代 skeptic 审批，或在 fix verification 缺失时 finalize

@@ -320,6 +320,7 @@ def build_intake_gate_payload(root: Path, run_root: Path) -> dict[str, Any]:
         "generated_by": "intake_gate",
         "generated_at": _now_iso(),
         "status": status,
+        "workflow_stage": "intake_gate_passed" if status == "passed" else "accepted_intake_initialized",
         "run_root": _norm(run_root),
         "run_id": run_id,
         "session_id": session_id,

@@ -26,6 +26,73 @@ description: Public main skill for the RenderDoc/RDC GPU debugger framework. Use
 13. 直接决定 specialist 分派、阶段推进与最终质量门。
 14. 在 case/run 已创建后，从 `hypothesis_board.yaml` 读取并持续回显当前 task/progress。
 
+## Role Whitelist Protocol
+
+### Allowed Responsibilities
+
+- 执行 `intent_gate`
+- 执行 preflight / entry gate / intake gate
+- 初始化 case/run
+- 维护 `hypothesis_board.yaml`
+- 决定 specialist dispatch、workflow stage transition、timeout、redispatch
+- 在所有 gate 满足后推进 skeptic / curator
+
+### Forbidden Responsibilities
+
+- 不在 `waiting_for_specialist_brief` 期间替 specialist 做 live investigation
+- 不跳过 skeptic / curator gate
+- 不把 remote blocker 留到 patch/debug 之后再补写
+- 不把 Tools runtime truth 改写成 framework 自己猜的能力结论
+
+### Writable Scope
+
+- `workspace_control`
+
+### Live RD Permission
+
+- 仅限 orchestrator 自身被允许执行的 gate / setup / bounded inspection
+- 在 `waiting_for_specialist_brief` 期间禁止继续 specialist-style live `rd.*`
+
+### Dispatch Permission
+
+- 允许
+
+### Final Verdict / Report Permission
+
+- 允许推进 final gate
+- 不直接承担 curator 报告写入，除非 `single_agent_by_user`
+
+## Formal Workflow State Machine
+
+主流程固定为：
+
+1. `preflight_pending`
+2. `intent_gate_passed`
+3. `entry_gate_passed`
+4. `accepted_intake_initialized`
+5. `intake_gate_passed`
+6. `waiting_for_specialist_brief`
+7. `specialist_briefs_collected`
+8. `expert_investigation_complete`
+9. `fix_verification_complete`
+10. `skeptic_ready`
+11. `curator_ready`
+12. `finalized`
+
+硬规则：
+
+- 每次阶段切换都必须可审计
+- 无 `fix_verification` 不进 skeptic
+- 无 skeptic strict signoff 不进 curator
+- 无 curator 最终写入不算 finalized
+
+remote run 额外要求先完成：
+
+- `remote_prerequisite_gate`
+- `remote_capability_gate`
+
+如被 capability 阻断，必须进入 truthful-fail 路径，而不是继续 patch/debug。
+
 ## Intent Gate 独占权
 
 `intent_gate` 只允许由 `rdc-debugger` 的主入口 LLM 执行。
@@ -345,6 +412,7 @@ specialist dispatch 后的最小 progress contract：
 - progress brief 至少包含：`active_owner`、`current_task`、`working_hypothesis`、`evidence_collected`、`blocking_issues`、`next_actions`、`status`
 - 首次 brief 应在 60 秒内出现；持续执行中超过 5 分钟无阶段更新时，应进入 `BLOCKED_SPECIALIST_FEEDBACK_TIMEOUT` 或等价阻断状态
 - 短时 silence 只能被表述为等待/阻断，不能自动回退成 orchestrator 自执行
+- 若主 agent 在 `waiting_for_specialist_brief` 期间继续抢做 live investigation，必须记为 `PROCESS_DEVIATION_MAIN_AGENT_OVERREACH`
 
 如果还没有 `.rdc`，你只能在当前对话或主面板中显示临时状态，不能伪造 `hypothesis_board.yaml`。`intent_gate` 只有在 `decision=debugger` 且 run 创建后，才以摘要形式写入 `hypothesis_board.yaml`。
 

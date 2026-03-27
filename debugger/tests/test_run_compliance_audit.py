@@ -473,6 +473,84 @@ def _seed_runtime_topology(root: Path, run_root: Path, *, platform: str) -> None
     module.run_runtime_topology(root, run_root, platform=platform)
 
 
+def _seed_remote_artifacts(
+    run_root: Path,
+    *,
+    blocked_capability_codes: list[str] | None = None,
+    reconnect_required: bool = False,
+    inconsistency_status: str = "clear",
+) -> None:
+    blocked_codes = [str(item).strip() for item in (blocked_capability_codes or []) if str(item).strip()]
+    _write(
+        run_root / "artifacts" / "remote_prerequisite_gate.yaml",
+        yaml.safe_dump(
+            {
+                "status": "passed",
+                "blocking_codes": [],
+                "remote_transport": "adb_android",
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+    )
+    _write(
+        run_root / "artifacts" / "remote_capability_gate.yaml",
+        yaml.safe_dump(
+            {
+                "status": "blocked" if blocked_codes else "passed",
+                "blocked_capability_codes": blocked_codes,
+                "remote_capability_matrix": {
+                    "endpoint": {"status": "ready"},
+                    "replay": {"status": "ready"},
+                    "event_bound_inspection": {"status": "ready"},
+                    "shader_debug": {"status": "blocked" if blocked_codes else "ready", "blocking_codes": blocked_codes},
+                    "shader_replace": {"status": "blocked" if blocked_codes else "ready", "blocking_codes": blocked_codes},
+                    "shader_compile": {"status": "ready"},
+                    "fix_verification": {"status": "blocked" if blocked_codes else "ready", "blocking_codes": blocked_codes},
+                },
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+    )
+    _write(
+        run_root / "artifacts" / "remote_recovery_decision.yaml",
+        yaml.safe_dump(
+            {
+                "status": "blocked" if reconnect_required else "passed",
+                "reconnect_required": reconnect_required,
+                "blocking_codes": ["BLOCKED_REMOTE_SESSION_REOPEN_REQUIRED"] if reconnect_required else [],
+                "decision": "reconnect_required" if reconnect_required else "reuse_current_context",
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+    )
+    _write(
+        run_root / "notes" / "remote_planning_brief.yaml",
+        yaml.safe_dump(
+            {
+                "status": "ready",
+                "summary": "remote plan recorded",
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+    )
+    _write(
+        run_root / "notes" / "remote_runtime_inconsistency.yaml",
+        yaml.safe_dump(
+            {
+                "status": inconsistency_status,
+                "summary": "no inconsistency detected" if inconsistency_status == "clear" else "remote inconsistency captured",
+                "blocking_codes": [],
+            },
+            sort_keys=False,
+            allow_unicode=True,
+        ),
+    )
+
+
 def _seed_run(
     root: Path,
     case_id: str,
@@ -596,6 +674,15 @@ def _seed_run(
         yaml.safe_dump(
             {
                 "schema_version": "1",
+                "verdict": "root_cause_validated_fix_verified",
+                "verification_mode": "strict",
+                "verification_confidence": "high",
+                "blocked_by_capability": False,
+                "blocked_capability_codes": [],
+                "candidate_fix_prepared": True,
+                "candidate_fix_live_applied": True,
+                "candidate_fix_structurally_validated": True,
+                "candidate_fix_semantically_validated": True,
                 "structural_verification": {
                     "status": "passed",
                     "causal_anchor_ref": "event:523",
@@ -608,6 +695,8 @@ def _seed_run(
                         }
                     ],
                     "anomaly_cleared": True,
+                    "blocked_by_capability": False,
+                    "blocked_capability_codes": [],
                 },
                 "semantic_verification": {
                     "status": "passed",
@@ -616,10 +705,12 @@ def _seed_run(
                     "baseline_source_ref": "capture:baseline",
                     "probe_summary": [{"probe_id": "hair_hotspot", "max_delta": 0.03}],
                     "max_delta": 0.03,
+                    "fallback_only": False,
                 },
                 "overall_result": {
                     "status": "passed",
                     "derived_from": ["structural_verification", "semantic_verification"],
+                    "verdict": "root_cause_validated_fix_verified",
                 },
             },
             sort_keys=False,
@@ -979,6 +1070,7 @@ class RunComplianceAuditTests(unittest.TestCase):
         self.assertEqual(artifact["applied_live_runtime_policy"], "multi_context_orchestrated")
         self.assertEqual(artifact["delegation_status"], "native_dispatch")
         self.assertEqual(artifact["fallback_execution_mode"], "wrapper")
+        self.assertEqual(artifact["workflow_stage"], "fix_verification_complete")
         self.assertEqual(artifact["degraded_reasons"], [])
         self.assertTrue(artifact["context_bindings"])
         pixel_binding = next(item for item in artifact["context_bindings"] if item["context_id"] == "ctx-pixel")
@@ -1131,6 +1223,10 @@ class RunComplianceAuditTests(unittest.TestCase):
         artifact = yaml.safe_load((run_root / "artifacts" / "run_compliance.yaml").read_text(encoding="utf-8"))
         failing = {item["id"] for item in artifact["checks"] if item["result"] == "fail"}
         self.assertIn("runtime_owner_topology", failing)
+        topology = yaml.safe_load((run_root / "artifacts" / "runtime_topology.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(topology["remote_context_locality"], "strict")
+        self.assertEqual(topology["remote_handle_reuse_policy"], "must_reconnect")
+        self.assertEqual(topology["remote_gate_status"]["prerequisite"]["status"], "passed")
 
     def test_staged_handoff_specialist_cannot_dispatch_specialist(self) -> None:
         root = self._temp_root()
@@ -1278,6 +1374,7 @@ class RunComplianceAuditTests(unittest.TestCase):
         run_yaml = yaml.safe_load((run_root / "run.yaml").read_text(encoding="utf-8"))
         run_yaml["runtime"]["backend"] = "remote"
         _write(run_root / "run.yaml", yaml.safe_dump(run_yaml, sort_keys=False, allow_unicode=True))
+        _seed_remote_artifacts(run_root)
         _seed_runtime_topology(root, run_root, platform="codex")
 
         action_chain = root / "common" / "knowledge" / "library" / "sessions" / "sess_fixture_001" / "action_chain.jsonl"
@@ -1310,6 +1407,125 @@ class RunComplianceAuditTests(unittest.TestCase):
         artifact = yaml.safe_load((run_root / "artifacts" / "run_compliance.yaml").read_text(encoding="utf-8"))
         failing = {item["id"] for item in artifact["checks"] if item["result"] == "fail"}
         self.assertIn("runtime_owner_topology", failing)
+
+    def test_remote_run_missing_remote_artifacts_fails(self) -> None:
+        root = self._temp_root()
+        _seed_base(root)
+        _seed_common_session(root, "sess_fixture_001", "run_01")
+        run_root = _seed_run(root, "case_001", "run_01", "codex", "staged_handoff")
+
+        entry_gate = yaml.safe_load((run_root.parent.parent / "artifacts" / "entry_gate.yaml").read_text(encoding="utf-8"))
+        entry_gate["backend"] = "remote"
+        entry_gate["request"]["remote_transport"] = "adb_android"
+        _write(run_root.parent.parent / "artifacts" / "entry_gate.yaml", yaml.safe_dump(entry_gate, sort_keys=False, allow_unicode=True))
+        run_yaml = yaml.safe_load((run_root / "run.yaml").read_text(encoding="utf-8"))
+        run_yaml["runtime"]["backend"] = "remote"
+        _write(run_root / "run.yaml", yaml.safe_dump(run_yaml, sort_keys=False, allow_unicode=True))
+        _seed_runtime_topology(root, run_root, platform="codex")
+
+        proc = _run_audit(root, "codex", run_root)
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        artifact = yaml.safe_load((run_root / "artifacts" / "run_compliance.yaml").read_text(encoding="utf-8"))
+        failing = {item["id"] for item in artifact["checks"] if item["result"] == "fail"}
+        self.assertIn("remote_prerequisite_gate_artifact", failing)
+        self.assertIn("remote_capability_gate_artifact", failing)
+        self.assertIn("remote_recovery_decision_artifact", failing)
+
+    def test_invalid_fix_verdict_fails_schema(self) -> None:
+        root = self._temp_root()
+        _seed_base(root)
+        _seed_common_session(root, "sess_fixture_001", "run_01")
+        run_root = _seed_run(root, "case_001", "run_01", "code-buddy", "concurrent_team")
+        fix_path = run_root / "artifacts" / "fix_verification.yaml"
+        payload = yaml.safe_load(fix_path.read_text(encoding="utf-8"))
+        payload["verdict"] = "legacy_verdict"
+        payload["overall_result"]["verdict"] = "legacy_verdict"
+        fix_path.write_text(yaml.safe_dump(payload, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+        proc = _run_audit(root, "code-buddy", run_root)
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        artifact = yaml.safe_load((run_root / "artifacts" / "run_compliance.yaml").read_text(encoding="utf-8"))
+        failing = {item["id"] for item in artifact["checks"] if item["result"] == "fail"}
+        self.assertIn("fix_verification_schema", failing)
+
+    def test_waiting_for_specialist_brief_overreach_fails(self) -> None:
+        root = self._temp_root()
+        _seed_base(root)
+        _seed_common_session(root, "sess_fixture_001", "run_01")
+        run_root = _seed_run(root, "case_001", "run_01", "codex", "staged_handoff")
+        action_chain = root / "common" / "knowledge" / "library" / "sessions" / "sess_fixture_001" / "action_chain.jsonl"
+        events = [json.loads(line) for line in action_chain.read_text(encoding="utf-8").splitlines() if line.strip()]
+        events.insert(
+            1,
+            {
+                "schema_version": "2",
+                "event_id": "evt-0001b-waiting",
+                "ts_ms": 1772537599950,
+                "run_id": "run_01",
+                "session_id": "sess_fixture_001",
+                "agent_id": "rdc-debugger",
+                "event_type": "workflow_stage_transition",
+                "status": "entered",
+                "duration_ms": 0,
+                "refs": [],
+                "payload": {
+                    "workflow_stage": "waiting_for_specialist_brief",
+                    "blocking_code": "",
+                    "blocking_codes": [],
+                    "required_artifacts_before_transition": ["notes/pixel_forensics.md"],
+                },
+            },
+        )
+        events.insert(
+            2,
+            {
+                "schema_version": "2",
+                "event_id": "evt-0001c-overreach",
+                "ts_ms": 1772537599960,
+                "run_id": "run_01",
+                "session_id": "sess_fixture_001",
+                "agent_id": "rdc-debugger",
+                "event_type": "tool_execution",
+                "status": "ok",
+                "duration_ms": 30,
+                "refs": [],
+                "payload": _rt_payload(
+                    context_id="ctx-orchestrator",
+                    runtime_owner="rdc-debugger",
+                    tool_name="rd.pipeline.get_state",
+                    transport="daemon",
+                ),
+            },
+        )
+        events.insert(
+            3,
+            {
+                "schema_version": "2",
+                "event_id": "evt-0001d-briefs-collected",
+                "ts_ms": 1772537599970,
+                "run_id": "run_01",
+                "session_id": "sess_fixture_001",
+                "agent_id": "rdc-debugger",
+                "event_type": "workflow_stage_transition",
+                "status": "entered",
+                "duration_ms": 0,
+                "refs": [],
+                "payload": {
+                    "workflow_stage": "specialist_briefs_collected",
+                    "blocking_code": "",
+                    "blocking_codes": [],
+                    "required_artifacts_before_transition": ["notes/pixel_forensics.md"],
+                },
+            },
+        )
+        _write(action_chain, "\n".join(json.dumps(event, ensure_ascii=False) for event in events) + "\n")
+        _seed_runtime_topology(root, run_root, platform="codex")
+
+        proc = _run_audit(root, "codex", run_root)
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        artifact = yaml.safe_load((run_root / "artifacts" / "run_compliance.yaml").read_text(encoding="utf-8"))
+        failing = {item["id"] for item in artifact["checks"] if item["result"] == "fail"}
+        self.assertIn("workflow_stage_overreach", failing)
 
     def test_workflow_stage_allows_serial_instruction_only_specialists(self) -> None:
         root = self._temp_root()

@@ -1,18 +1,45 @@
 schema_version: "1"
 
+verdicts:
+  allowed:
+    - root_cause_localized_fix_unverified
+    - root_cause_probable_fix_unverified
+    - root_cause_validated_fix_verified
+    - root_cause_localized_remote_fix_path_blocked
+    - root_cause_localized_remote_runtime_inconsistent
+    - verification_blocked_remote_backend_capability
+
 required_fields:
   - field: schema_version
     type: string
     pattern: "^1$"
+  - field: verdict
+    type: string
+  - field: verification_mode
+    type: string
+  - field: verification_confidence
+    type: string
+  - field: blocked_by_capability
+    type: boolean
+  - field: blocked_capability_codes
+    type: list
+  - field: candidate_fix_prepared
+    type: boolean
+  - field: candidate_fix_live_applied
+    type: boolean
+  - field: candidate_fix_structurally_validated
+    type: boolean
+  - field: candidate_fix_semantically_validated
+    type: boolean
   - field: structural_verification
     type: object
-    required_subfields: [status, causal_anchor_ref, probe_results, anomaly_cleared]
+    required_subfields: [status, causal_anchor_ref, probe_results, anomaly_cleared, blocked_by_capability, blocked_capability_codes]
   - field: semantic_verification
     type: object
-    required_subfields: [status, verification_mode, baseline_source_kind, baseline_source_ref, probe_summary]
+    required_subfields: [status, verification_mode, baseline_source_kind, baseline_source_ref, probe_summary, fallback_only]
   - field: overall_result
     type: object
-    required_subfields: [status, derived_from]
+    required_subfields: [status, derived_from, verdict]
 
 status:
   structural_allowed: [passed, failed]

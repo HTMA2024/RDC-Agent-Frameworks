@@ -206,11 +206,24 @@ def build_entry_gate_payload(
 
     blockers = _blockers_from_checks(checks)
     status = "passed" if not blockers else "blocked"
+    remote_prerequisite_gate = {
+        "status": (
+            "not_applicable"
+            if backend_norm != "remote"
+            else ("passed" if not any(item["id"] == "remote_prerequisites" and item["result"] == "fail" for item in checks) else "blocked")
+        ),
+        "blocking_codes": [
+            item["code"]
+            for item in blockers
+            if str(item.get("code") or "").strip() == "BLOCKED_REMOTE_PREREQUISITE"
+        ],
+    }
     return {
         "schema_version": ENTRY_GATE_SCHEMA,
         "generated_by": "entry_gate",
         "generated_at": _now_iso(),
         "status": status,
+        "workflow_stage": "entry_gate_passed" if status == "passed" else "preflight_pending",
         "platform": platform_key,
         "entry_mode": entry_mode_norm,
         "backend": backend_norm,
@@ -251,6 +264,7 @@ def build_entry_gate_payload(
             "runtime_parallelism_ceiling": str((mode_truth or {}).get("runtime_parallelism_ceiling") or ""),
             "host_coordination_gate": str((mode_truth or {}).get("host_coordination_gate") or ""),
         },
+        "remote_prerequisite_gate": remote_prerequisite_gate,
         "paths": {
             "case_root": _norm(case_root),
             "platform_capabilities": _norm(platform_caps_path),

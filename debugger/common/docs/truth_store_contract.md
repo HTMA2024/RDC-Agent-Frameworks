@@ -1,88 +1,153 @@
-# Truth Store Contract（真相存储契约）
+# Truth Store Contract
 
-本文定义 Debugger framework 在文件系统上的真相存储契约。
+本文定义 debugger framework 在文件系统上的真相存储合同。
 
-本契约只规定 artifact 角色、寻址、引用和单写者约束；不引入 object store / database / cloud backend 抽象，也不替代底层 tools/infra 的持久化实现。
+本合同只规定 artifact 角色、寻址、引用与单写者边界；不引入 object store / database 抽象，也不替代底层 Tools 的持久化实现。
 
-## 五类 Artifact
+## 1. 五类共享真相 Artifact
 
-### 1. `action_chain.jsonl`
+### `action_chain.jsonl`
 
 - 角色：`append_only_ledger`
-- 真相定位：记录 run/session 中发生过什么
-- 存储格式：每行一个 JSON event
-- 写入方式：只允许 append，不允许覆盖历史事件
+- 记录：run/session 中发生过什么
+- 规则：只允许 append，不允许改写历史
 
-### 2. `session_evidence.yaml`
+### `session_evidence.yaml`
 
 - 角色：`adjudicated_snapshot`
-- 真相定位：记录已裁决的因果锚点、假设状态、反事实复核、`reference_contract` 摘要与 `fix_verification` 摘要
-- 存储格式：YAML object
-- 写入方式：单写者快照；重写时必须保持 `snapshot_version` 单调递增
+- 记录：已裁决的 `causal_anchor`、`hypotheses`、`counterfactual_reviews`、`reference_contract` 与 `fix_verification` 摘要
+- 规则：单写者快照，重写时 `snapshot_version` 必须单调递增
 
-### 3. `registry/active_manifest.yaml`
+### `registry/active_manifest.yaml`
 
 - 角色：`versioned_spec_pointer`
-- 真相定位：记录当前生效的 SOP / invariant / taxonomy 版本
-- 存储格式：YAML object
-- 写入方式：只能由自动晋升 / 自动回滚流程切换指针
+- 记录：当前生效 spec 版本
+- 规则：只能由 spec 演化流程切换
 
-### 4. `evolution_ledger.jsonl`
+### `evolution_ledger.jsonl`
 
 - 角色：`append_only_governance_ledger`
-- 真相定位：记录 candidate 发射、replay 通过、shadow 观察、active 切换、回滚与去冗余决策
-- 存储格式：每行一个 JSON event
-- 写入方式：只允许 append，不允许回写历史
+- 记录：knowledge candidate 的发射、验证、shadow、激活、回滚
+- 规则：只允许 append
 
-### 5. `run_compliance.yaml`
+### `run_compliance.yaml`
 
 - 角色：`derived_audit`
-- 真相定位：仅表达审计结果与 run 级指标
-- 存储格式：YAML object
-- 写入方式：派生产物，不得作为上游推理输入的唯一来源
+- 记录：run 级审计结果
+- 规则：是派生物，不得反向覆盖上游事实
 
-## `workspace` 输入与验证 Artifact
+## 2. Workspace Artifact As Gate Inputs
 
-以下对象位于 `workspace/`，不是共享真相，但属于 finalization 必需输入：
+以下对象不属于共享知识库真相，但属于 finalization 必需输入：
 
 - `case_input.yaml`
-  - case 级唯一 intake SSOT
-- `inputs/references/manifest.yaml`
-  - 非 replay reference 清单
-- `artifacts/fix_verification.yaml`
-  - run 级唯一修复验证 artifact
+- `entry_gate.yaml`
+- `intake_gate.yaml`
+- `runtime_topology.yaml`
+- `fix_verification.yaml`
+- `skeptic_signoff.yaml`
 
-它们不是 `common/knowledge/**` 真相对象，但 Stop Gate 必须验证其存在、结构和引用关系。
+remote run 额外要求：
 
-## 寻址与引用
+- `remote_prerequisite_gate.yaml`
+- `remote_capability_gate.yaml`
+- `remote_recovery_decision.yaml`
+- `notes/remote_planning_brief.yaml`
+- `notes/remote_runtime_inconsistency.yaml`
 
-- 事件之间只通过 `event_id` 互相引用。
-- `session_evidence.yaml` 必须记录 `spec_snapshot_ref` 与 `active_spec_versions`，不得只写自然语言说明。
-- `session_evidence.yaml` 必须记录 `reference_contract.ref` 与 `fix_verification.ref`。
-- BugCard 必须通过 `verification.reference_contract_ref` 指回 `case_input.yaml#reference_contract`。
-- report / visual report 只能引用已经存在于 ledger、snapshot、workspace artifact 或 active spec snapshot 中的结构化对象。
+## 3. Required Cross References
 
-## 单写者与边界
+- `session_evidence.yaml` 必须记录 `spec_snapshot_ref` 与 `active_spec_versions`
+- `session_evidence.reference_contract.ref` 必须指回 `case_input.yaml#reference_contract`
+- `session_evidence.fix_verification.ref` 必须指回 `artifacts/fix_verification.yaml`
+- report 只能引用已存在于 ledger、snapshot、workspace artifact 或 active spec snapshot 中的结构化对象
 
-- `action_chain.jsonl` 可由多个 agent 追加，但不得修改既有事件。
-- `session_evidence.yaml` 只允许一个快照写者提交当前版本；推荐由 `curator_agent` 负责写入。
-- `active_manifest.yaml` 与 `spec_registry.yaml` 只能由知识演化流程切换，不允许手工绕过 candidate 直接修改 active 指针。
-- `fix_verification.yaml` 是 run 级唯一修复验证对象；不得并行维护第二套 before/after 验证文件。
-- `run_compliance.yaml` 只能由审计过程生成，不允许手写伪造通过状态。
+## 4. Action Chain Required Audit Fields
 
-## 恢复顺序
+涉及 gate / dispatch / artifact_write / skeptic / curator / deviation 的事件，必须可审计以下字段：
 
-1. `session_evidence.yaml` 中的 `causal_anchor`、`hypotheses`、`counterfactual_reviews`、`reference_contract`、`fix_verification`
-2. `action_chain.jsonl` 中与上述对象绑定的事件
-3. `../workspace/cases/<case_id>/case_input.yaml`
-4. `../workspace/cases/<case_id>/runs/<run_id>/artifacts/fix_verification.yaml`
-5. `registry/active_manifest.yaml` 与其指向的 versioned spec object
-6. `evolution_ledger.jsonl`
-7. `run_compliance.yaml`
+- `workflow_stage_transition`
+- `process_deviation`
+- `blocking_code`
+- `required_artifacts_before_transition`
+- `runtime`
+- `locality`
+- `owner`
+- `baton`
 
-## 禁止事项
+硬规则：
 
-- 不得把 `run_compliance.yaml` 当作唯一真相源回推 session 事实。
-- 不得在 `session_evidence.yaml` 中复制整段 tool trace。
-- 不得再维护旧 `fix_verification_data` 或第二套修复验证对象。
-- 不得为了兼容旧 schema 同时维护第二套 intake、第二套 snapshot、第二套修复验证入口。
+- 阶段切换必须落 `workflow_stage_transition`
+- 主 agent overreach 必须落 `process_deviation`
+- unresolved `process_deviation` 会阻断 finalization
+
+## 5. Fix Verification Contract
+
+`fix_verification.yaml` 是 run 级唯一修复验证真相对象，至少包含：
+
+- `verdict`
+- `verification_mode`
+- `verification_confidence`
+- `blocked_by_capability`
+- `blocked_capability_codes`
+- `candidate_fix_prepared`
+- `candidate_fix_live_applied`
+- `candidate_fix_structurally_validated`
+- `candidate_fix_semantically_validated`
+- `structural_verification`
+- `semantic_verification`
+- `overall_result`
+
+硬规则：
+
+- `overall_result.status=passed` 时，结构与语义验证都必须是 `passed`
+- `fallback_only` 不能被提升成 strict pass
+- `blocked_by_capability=true` 时，`overall_result.status` 必须为 `failed`
+- 不再维护旧 `fix_verification_data`
+
+## 6. Runtime Topology Contract
+
+`runtime_topology.yaml` 是 run 级 topology 权威对象，至少包含：
+
+- `workflow_stage`
+- `remote_capability_matrix`
+- `remote_context_locality`
+- `remote_handle_origin_context`
+- `remote_handle_reuse_policy`
+- `remote_gate_status`
+- `recovery_policy`
+- `blocked_capability_codes`
+
+remote gate 与 remote truthful-fail verdict 必须基于这些字段，而不是额外猜测。
+
+## 7. Single Writer Boundaries
+
+- `action_chain.jsonl`
+  - 多 agent 可追加，但不得修改既有事件
+- `session_evidence.yaml`
+  - 只允许单写者提交当前版本，默认由 `curator_agent` 负责
+- `fix_verification.yaml`
+  - 只允许维护一份正式修复验证对象
+- `run_compliance.yaml`
+  - 只允许由审计过程生成
+
+## 8. Recovery Order
+
+恢复顺序固定为：
+
+1. `session_evidence.yaml`
+2. `action_chain.jsonl`
+3. `case_input.yaml`
+4. `fix_verification.yaml`
+5. `runtime_topology.yaml`
+6. remote gate artifact
+7. `active_manifest.yaml`
+8. `evolution_ledger.jsonl`
+9. `run_compliance.yaml`
+
+## 9. Forbidden Patterns
+
+- 不得把 `run_compliance.yaml` 当作唯一真相源回推 session 事实
+- 不得在 `session_evidence.yaml` 中复制整段 tool trace
+- 不得再维护旧 `fix_verification_data` 或第二套修复验证入口
+- 不得为了兼容旧 schema 而双写第二套 intake / snapshot / verification 对象

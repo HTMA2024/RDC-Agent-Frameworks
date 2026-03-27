@@ -81,6 +81,50 @@
   - `BLOCKED_REMOTE_PREREQUISITE`
 - framework 关于 local/remote 的正式支持级别，只能以 `common/config/platform_capabilities.json` 与 `common/config/runtime_mode_truth.snapshot.json` 为准
 
+## 3.1 Formal Workflow State Machine
+
+主流程固定为：
+
+1. `preflight_pending`
+2. `intent_gate_passed`
+3. `entry_gate_passed`
+4. `accepted_intake_initialized`
+5. `intake_gate_passed`
+6. `waiting_for_specialist_brief`
+7. `specialist_briefs_collected`
+8. `expert_investigation_complete`
+9. `fix_verification_complete`
+10. `skeptic_ready`
+11. `curator_ready`
+12. `finalized`
+
+硬规则：
+
+- 阶段切换必须可审计地写入 `action_chain.jsonl`
+- 无 `fix_verification.yaml` 不进 skeptic
+- 无 skeptic 严格 signoff 不进 curator
+- 无 curator 最终写入不算 finalized
+- remote blocker 和 truthful-fail verdict 必须在 patch/debug 前落盘
+
+## 3.2 Main-Agent Overreach Is A Process Deviation
+
+当 `coordination_mode=staged_handoff` 且 workflow 处于 `waiting_for_specialist_brief` 时，主 agent 只允许：
+
+- 读取 brief
+- 更新 `hypothesis_board.yaml`
+- 做 timeout / redispatch 决策
+
+主 agent 禁止：
+
+- 继续 live 探索
+- 替 specialist 补调查
+- 抢写 specialist 证据
+
+违反时必须在 `action_chain.jsonl` 中记为：
+
+- `event_type: process_deviation`
+- `blocking_code: PROCESS_DEVIATION_MAIN_AGENT_OVERREACH`
+
 ## 4. Mandatory Setup Verification
 
 所有需要平台真相的工作在开始前，必须先验证以下两项均已就绪：

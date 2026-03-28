@@ -10,6 +10,7 @@
 - 这条链要配套多点验证。raw asm 精确 patch 成功，只能证明工具链具备等价编辑/应用能力，不代表当前删掉的 `RelaxedPrecision` decoration 一定就是正确修复；样本级 bisect 仍要看多个像素点与回滚后一致性。
 - 这条链解决的是精确 IR patch / apply / revert 语义，不等价于 `qrenderdoc` 主视窗的最终 framebuffer 观察链；若 UI 主视图与 `rd.export.screenshot` 不一致，应单独按 framebuffer 观察问题处理。
 - 当前 `Tools` 已公开 context 绑定 preview：它只给人类同步观察 `current_session_id + active_event_id`，不进入 framework 的 gate / evidence / fix verification 主真相链。
+- framework 如需向用户解释当前观察窗口，可读取 `rd.session.get_context.preview.display` 中的 `output_slot`、`framebuffer_extent`、`viewport_rect`、`scissor_rect` 与 `window_rect`；这些字段只属于 human observer surface，不提升为 structure truth。
 
 ## 使用前提
 

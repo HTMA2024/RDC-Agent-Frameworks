@@ -1,4 +1,4 @@
-# RenderDoc/RDC Debugger Runtime Coordination Model
+﻿# RenderDoc/RDC Debugger Runtime Coordination Model
 
 本文定义 framework 如何消费 Tools 的 runtime truth，并把它落成可执行、可审计、可终局检查的协作协议。
 
@@ -155,6 +155,7 @@ remote run 额外要求：
 补充约束：
 
 - `rd.session.get_context.preview` 只属于 human observer surface。
+- `rd.session.get_context.preview.display` 可用于向用户解释当前 preview 观察到的 `output_slot`、framebuffer 几何与 viewport/scissor 标识，但它只属于 narrative observation。
 - 它不进入 runtime coordination audit surface，也不改变 `runtime_topology.yaml` / gate 的主真相定义。
 
 ## 9. Role Whitelist Summary

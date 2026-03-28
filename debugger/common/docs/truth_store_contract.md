@@ -1,4 +1,4 @@
-# Truth Store Contract
+﻿# Truth Store Contract
 
 本文定义 debugger framework 在文件系统上的真相存储合同。
 
@@ -58,6 +58,7 @@ remote run 额外要求：
 补充说明：
 
 - `rd.session.get_context.preview` 不是 gate input。
+- `rd.session.get_context.preview.display` 也不是 gate input；它最多只能作为人类同步观察的 narrative observation。
 - preview 只允许作为人类同步观察状态；不得替代 `runtime_topology.yaml`、`fix_verification.yaml` 或 `session_evidence.yaml`。
 
 ## 3. Required Cross References

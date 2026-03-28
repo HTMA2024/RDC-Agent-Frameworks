@@ -17,7 +17,7 @@
 - `.rdc -> capture_file_id -> session_id -> frame/event context` 的最小状态链路
 - `remote_id`、`capture_file_id`、`session_id`、`active_event_id` 等 handle 的生命周期
 - `context`、daemon、artifact、context snapshot 的平台语义
-- preview observer 的平台语义，以及 `rd.session.get_context.preview` 作为唯一公开状态源的口径
+- preview observer 的平台语义，以及 `rd.session.get_context.preview` / `rd.session.get_context.preview.display` 作为唯一公开状态源的口径
 - `spec/runtime_mode_truth.json` 对应的 transport/runtime 模式真相
 - 错误分类与恢复面
 

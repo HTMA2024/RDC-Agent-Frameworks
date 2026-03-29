@@ -1,0 +1,13 @@
+{
+  "name": "Report Compliance Gate",
+  "version": "1.0.0",
+  "description": "Validate document structure completeness before finalizing",
+  "when": {
+    "type": "preToolUse",
+    "toolTypes": ["write"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "If the current write operation targets a file matching **/artifacts/report_compliance.yaml, verify that: (1) L1 document exists and contains all required sections, (2) for detailed/focused mode L2 documents exist for all target modules, (3) all tables use Markdown format, (4) all pseudocode uses code block format. If any check fails, DENY the write and list the missing items. If the file does not match report_compliance.yaml, ALLOW the write to proceed."
+  }
+}

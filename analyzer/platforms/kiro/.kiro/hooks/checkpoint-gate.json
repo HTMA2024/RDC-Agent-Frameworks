@@ -1,0 +1,13 @@
+{
+  "name": "Phase Checkpoint Gate",
+  "version": "1.0.0",
+  "description": "Validate phase checkpoint completeness before advancing to next phase",
+  "when": {
+    "type": "preToolUse",
+    "toolTypes": ["write"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "If the current write operation targets a file matching **/artifacts/phase*_checkpoint.yaml, verify that all required checks for the corresponding phase have passed according to the coverage_board. If any required check is missing or failed, DENY the write and list the missing items. If the file does not match the checkpoint pattern, ALLOW the write to proceed."
+  }
+}

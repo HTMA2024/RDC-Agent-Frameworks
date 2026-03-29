@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "framework": "analyzer",
+  "model_profiles": {
+    "orchestrator": {
+      "intent": "analysis_orchestration",
+      "reasoning_effort": "high",
+      "verbosity": "medium"
+    },
+    "analyst": {
+      "intent": "structural_analysis",
+      "reasoning_effort": "medium",
+      "verbosity": "high"
+    },
+    "reporter": {
+      "intent": "structured_reporting",
+      "reasoning_effort": "medium",
+      "verbosity": "high"
+    }
+  },
+  "tool_policies": {
+    "coordination_only": {
+      "allow_live_tools": false,
+      "tool_classes": ["planning", "delegation", "artifact_review"]
+    },
+    "analysis": {
+      "allow_live_tools": true,
+      "tool_classes": ["rd_runtime", "artifact_review", "brief_handoff"]
+    },
+    "curation": {
+      "allow_live_tools": false,
+      "tool_classes": ["artifact_write", "knowledge_write", "artifact_review"]
+    }
+  },
+  "roles": {
+    "pipeline_overview_agent": {
+      "model_profile": "analyst",
+      "tool_policy": "analysis",
+      "write_scopes": ["workspace_notes"],
+      "delegates_to": ["rdc-analyst"]
+    },
+    "pass_resource_agent": {
+      "model_profile": "analyst",
+      "tool_policy": "analysis",
+      "write_scopes": ["workspace_notes"],
+      "delegates_to": ["rdc-analyst"]
+    },
+    "shader_reverse_agent": {
+      "model_profile": "analyst",
+      "tool_policy": "analysis",
+      "write_scopes": ["workspace_notes"],
+      "delegates_to": ["rdc-analyst"]
+    },
+    "resource_tracker_agent": {
+      "model_profile": "analyst",
+      "tool_policy": "analysis",
+      "write_scopes": ["workspace_notes"],
+      "delegates_to": ["rdc-analyst"]
+    },
+    "technique_analyst_agent": {
+      "model_profile": "analyst",
+      "tool_policy": "analysis",
+      "write_scopes": ["workspace_notes"],
+      "delegates_to": ["rdc-analyst"]
+    },
+    "report_curator_agent": {
+      "model_profile": "reporter",
+      "tool_policy": "curation",
+      "write_scopes": ["workspace_reports", "session_artifacts", "knowledge_library"],
+      "delegates_to": ["rdc-analyst"]
+    }
+  }
+}

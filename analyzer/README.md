@@ -2,40 +2,49 @@
 
 ## 定位
 
-> 当前状态：`incubating`
->
-> 本目录仍处于方法论与骨架阶段，不纳入当前首发 GA / 商用品质门槛。
+> 当前状态：`alpha`
 
 Analyzer 的目标不是修 bug，而是**把未知系统结构化为可解释模型**。
 
-它的使命是：从一份或多份 capture 中，重建渲染管线与资源依赖，反推出 engine/material 的抽象模块，并生成可检索的知识库条目（供 Debug/Optimization 复用）。
+它的使命是：从一份或多份 capture 中，重建渲染管线与资源依赖，逆向关键 Shader 算法，并生成可检索的知识库条目（供 Debug/Optimization 复用）。
 
-## 成功标准（最小达标）
+## 三级分析粒度
 
-- pass graph 可视化可用（主要 pass、输入输出、依赖关系清晰）。
-- shader/材质 block 指纹库可用（至少覆盖高频模块）。
-- 可回答追溯查询（traceability）：
-  - “某个像素/某个 pass 的颜色从哪里来？”
+- **粗粒度（coarse）**：整体管线框架结构分析，快速概览
+- **细粒度全量（detailed）**：整体框架 + 所有模块最细粒度分析
+- **专项模块（focused）**：在已有粗粒度基础上，对指定模块做最细粒度分析
 
-## 典型输入与输出
+## 四阶段工作流
 
-- 输入：一份或多份 capture、引擎/材质约定（若有）、资源命名规则、已知模块线索等。
-- 输出：pass graph、资源依赖链、模块抽象（engine/material blocks）、指纹库条目、可检索知识索引与查询样例。
+1. **Phase 1: Pipeline Overview** — 帧统计、Pass 功能映射、架构流程图
+2. **Phase 2: Per-Pass Deep Analysis** — 逐 Pass 管线状态、资源绑定、Compute 分析
+3. **Phase 3: Shader Reverse Engineering** — 反汇编、算法逆向、伪代码重建
+4. **Phase 4: Specialized Analysis** — 专项技术深入、资源追踪、文档输出
 
-## 目录建议（说明性建议，不构成强约束）
+## 两层文档结构
 
-参考 `debugger/` 的分层方式，建议逐步演进到：
+- **L1**：`<Project>_RenderAnalysis.md` — 整体架构文档
+- **L2**：`<Project>_<Module>_DeepAnalysis.md` — 模块深入分析文档
 
-- `common/`：平台无关的核心 Prompt 与知识契约（SSOT）
-- `platforms/`：不同宿主/插件/工作台的适配层
-- `docs/`：方法论、产物格式、术语与边界
-- `knowledge/`：可检索知识库与会话产物沉淀
-- `hooks/`：质量校验门禁（可选）
+## 角色体系
+
+| Agent | 职责 |
+|-------|------|
+| `rdc-analyst` | 主入口/编排者 |
+| `pipeline_overview` | Phase 1：渲染管线概览 |
+| `pass_resource` | Phase 2：逐 Pass 资源绑定分析 |
+| `shader_reverse` | Phase 3：Shader 逆向分析 |
+| `resource_tracker` | Phase 4a：资源生命周期追踪 |
+| `technique_analyst` | Phase 4b：专项技术分析 |
+| `report_curator` | 文档生成与知识沉淀 |
+
+## 目录结构
+
+- `common/`：平台无关的核心约束、角色定义、配置与知识库
+- `platforms/`：不同宿主的适配层（待建设）
+- `DESIGN_DRAFT.md`：设计框架文档
 
 ## 当前入口
 
-当前最小 public entry 位于：
-
-- `common/skills/rdc-analyst/SKILL.md`
-
-它只承担 intake 与边界声明，不代表 `analyzer` 已完成平台化或 runtime contract 建设。
+- `common/skills/rdc-analyst/SKILL.md` — public main skill
+- `common/AGENT_CORE.md` — 框架核心约束

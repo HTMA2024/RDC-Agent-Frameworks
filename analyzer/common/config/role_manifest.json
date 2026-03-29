@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "framework": "analyzer",
+  "roles": [
+    {
+      "agent_id": "pipeline_overview_agent",
+      "category": "analyst",
+      "display_name": "Pipeline Overview",
+      "description": "Build frame statistics, Pass function mapping, stage classification, and architecture flowchart.",
+      "source_prompt": "agents/02_pipeline_overview.md",
+      "role_skill_path": "skills/pipeline-overview/SKILL.md"
+    },
+    {
+      "agent_id": "pass_resource_agent",
+      "category": "analyst",
+      "display_name": "Pass Resource Binding",
+      "description": "Per-Pass pipeline state, RT/texture/CB binding, Compute Dispatch analysis.",
+      "source_prompt": "agents/03_pass_resource.md",
+      "role_skill_path": "skills/pass-resource/SKILL.md"
+    },
+    {
+      "agent_id": "shader_reverse_agent",
+      "category": "analyst",
+      "display_name": "Shader Reverse Engineering",
+      "description": "Disassemble shaders, reverse algorithms, rebuild pseudocode.",
+      "source_prompt": "agents/04_shader_reverse.md",
+      "role_skill_path": "skills/shader-reverse/SKILL.md"
+    },
+    {
+      "agent_id": "resource_tracker_agent",
+      "category": "analyst",
+      "display_name": "Resource Lifecycle Tracker",
+      "description": "Global texture/buffer tracking, lifecycle mapping, read-write conflict detection.",
+      "source_prompt": "agents/05_resource_tracker.md",
+      "role_skill_path": "skills/resource-tracker/SKILL.md"
+    },
+    {
+      "agent_id": "technique_analyst_agent",
+      "category": "analyst",
+      "display_name": "Technique Analyst",
+      "description": "Module-specific deep analysis dynamically configured by analysis_plan specializations.",
+      "source_prompt": "agents/06_technique_analyst.md",
+      "role_skill_path": "skills/technique-analyst/SKILL.md"
+    },
+    {
+      "agent_id": "report_curator_agent",
+      "category": "reporter",
+      "display_name": "Report & Knowledge Curator",
+      "description": "Generate L1/L2 documents, knowledge library entries, and coverage verification.",
+      "source_prompt": "agents/07_report_curator.md",
+      "role_skill_path": "skills/report-curator/SKILL.md"
+    }
+  ]
+}

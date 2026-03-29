@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "description": "Framework-to-tools binding for analyzer. paths.tools_source_root is fixed to the package-local directory 'tools'; it is a source payload only, while live runtime is staged into a daemon-owned worker cache.",
+  "paths": {
+    "tools_source_root": "tools"
+  },
+  "runtime": {
+    "mode": "worker_staged"
+  },
+  "validation": {
+    "mode": "hard_fail",
+    "required_paths": [
+      "README.md",
+      "docs/tools.md",
+      "docs/session-model.md",
+      "docs/agent-model.md",
+      "spec/tool_catalog.json"
+    ]
+  },
+  "cli": {
+    "launcher": "rdx.bat",
+    "reference_doc": "analyzer\\docs\\cli-mode-reference.md"
+  }
+}

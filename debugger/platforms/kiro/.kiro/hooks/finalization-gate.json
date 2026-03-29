@@ -1,0 +1,13 @@
+{
+  "name": "Finalization Gate",
+  "version": "1.0.0",
+  "description": "Block case finalization unless all quality gates pass",
+  "when": {
+    "type": "preToolUse",
+    "toolTypes": ["write"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "If the current write operation targets a file matching **/artifacts/run_compliance.yaml, verify that: (1) session evidence artifacts exist, (2) skeptic signoff artifact exists, (3) action chain artifact exists, (4) causal anchor is validated, (5) fix verification data is present. If any check fails, DENY the write and list the missing items. If the file does not match run_compliance.yaml, ALLOW the write to proceed."
+  }
+}

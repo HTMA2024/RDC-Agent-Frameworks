@@ -1,0 +1,10 @@
+{
+  "_description": "Kiro native hooks reference for RenderDoc/RDC GPU Debug.",
+  "_authority": ".kiro/steering/ + .kiro/hooks/",
+  "finalization_artifact": "artifacts/run_compliance.yaml",
+  "commands": {
+    "write_bugcard": "uv run --with pyyaml python common/hooks/utils/codebuddy_hook_dispatch.py write-bugcard",
+    "write_skeptic": "uv run --with pyyaml python common/hooks/utils/codebuddy_hook_dispatch.py write-skeptic",
+    "stop_gate": "uv run --with pyyaml python common/hooks/utils/codebuddy_hook_dispatch.py stop-gate"
+  }
+}

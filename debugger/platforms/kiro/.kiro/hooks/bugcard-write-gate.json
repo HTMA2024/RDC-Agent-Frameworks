@@ -1,0 +1,13 @@
+{
+  "name": "BugCard Write Gate",
+  "version": "1.0.0",
+  "description": "Validate BugCard completeness before writing to knowledge library",
+  "when": {
+    "type": "preToolUse",
+    "toolTypes": ["write"]
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "If the current write operation targets a file matching **/knowledge/library/**/*bugcard*.yaml, verify that all 12 required BugCard fields are present (bugcard_id, title, symptom_tags, trigger_tags, violated_invariants, recommended_sop, causal_anchor_type, causal_anchor_ref, causal_chain_summary, root_cause_summary, fingerprint, fix_verified). If any required field is missing, DENY the write and list the missing fields. If the file does not match the BugCard pattern, ALLOW the write to proceed."
+  }
+}

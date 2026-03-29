@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "renderdoc-platform-mcp": {
+      "command": "python",
+      "args": [
+        "tools/mcp/run_mcp.py"
+      ],
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
